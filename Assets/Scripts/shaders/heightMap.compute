@@ -1,0 +1,60 @@
+#pragma kernel CSMain
+
+#include "./Include/SimplexNoise2.hlsl"
+
+struct NoiseSettings {
+  int octaves;
+  float lacunarity;
+  float persistence;
+  float noiseScale;
+  float noiseStrength;
+  float verticalOffset;
+  float weight;
+  float oceanFloorThreshold;
+};
+
+StructuredBuffer<float3> vertices;
+RWStructuredBuffer<float> heights;
+StructuredBuffer<NoiseSettings> noiseSettings;
+float seedOffset[3];
+
+float ContinentNoise (float3 position, NoiseSettings noiseSettings) {
+    float noise = 0;
+    float3 seedOffsetVector = float3(seedOffset[0], seedOffset[1], seedOffset[2]);
+
+    float frequency = noiseSettings.noiseScale;
+    float amplitude = 1;
+    // float3 warp = snoise( TrilinearRepeat, ws*0.004 ).xyz
+
+    for (int j =0; j < noiseSettings.octaves; j ++) {
+        float n = snoise((position) * frequency + seedOffsetVector);
+        noise += n * amplitude;
+        amplitude *= noiseSettings.persistence;
+        frequency *= noiseSettings.lacunarity;
+    }
+
+    //float elevation = max(0, (noise * noiseSettings.noiseStrength) - noiseSettings.minValue );
+    float elevation = noise * noiseSettings.noiseStrength + noiseSettings.verticalOffset;
+    if(elevation < noiseSettings.oceanFloorThreshold) {
+      elevation = noiseSettings.oceanFloorThreshold;
+    }
+    return elevation;
+}
+
+[numthreads(512,1,1)]
+void CSMain (uint id : SV_DispatchThreadID) {
+  uint numVertices;
+  uint verticeStride;
+  vertices.GetDimensions(numVertices, verticeStride);
+
+  if(id >= numVertices) {
+    return;
+  }
+
+  float3 position = vertices[id];
+  float continentElevation = ContinentNoise(position, noiseSettings[0]);
+
+  float finalHeight = 1 + continentElevation* 0.01;
+
+  heights[id] = finalHeight;
+}
