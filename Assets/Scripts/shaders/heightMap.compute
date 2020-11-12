@@ -105,19 +105,14 @@ void CSMain (uint id : SV_DispatchThreadID) {
 
   // everything below 0 is underwater
   if(continentElevation < 0) {
-      continentElevation *= (1 + oceanDepthMultiplier);
       continentElevation = max(continentElevation, noiseSettings[0].oceanFloorThreshold);
+      continentElevation *= (1 + oceanDepthMultiplier);
   }
 
   float ridgeMaskNoise = ContinentNoise(position, noiseSettings[1]);
 
   float ridgeElevation = smoothedRidgidNoise(position, ridgeNoiseSettings[0]);
-  // if(ridgeMaskNoise > ridgeMaskMin) {
-  //   ridgeElevation = smoothedRidgidNoise(position, ridgeNoiseSettings[0]);
-  //   float ridgeMask = min(1, ((ridgeMaskNoise - ridgeMaskMin)/(ridgeMaskMax - ridgeMaskMin)));
-  //   ridgeElevation *= ridgeMask;
-  // }
-  float mask = smoothstep(0 - ridgeMaskMin, 0 + ridgeMaskMin, ridgeMaskNoise);
+  float mask = smoothstep(ridgeMaskMin, ridgeMaskMax, ridgeMaskNoise);
 
   float finalHeight = 1 + continentElevation* 0.01 + ridgeElevation* 0.01 * mask;
 

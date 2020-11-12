@@ -55,9 +55,6 @@ public class PlanetBodyGenerator : MonoBehaviour {
     int threadGroupsX = Mathf.CeilToInt(vertexBuffer.count/(float)threadDimensionX);
     int threadGroupsY = Mathf.CeilToInt(1/(float)threadDimensionX);
     int threadGroupsZ = Mathf.CeilToInt(1/(float)threadDimensionX);
-    Debug.Log(threadGroupsX);
-    Debug.Log(threadGroupsY);
-    Debug.Log(threadGroupsZ);
 
     heightMapCompute.Dispatch(0,threadGroupsX,threadGroupsY,threadGroupsZ);
 
