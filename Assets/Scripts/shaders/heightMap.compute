@@ -1,6 +1,6 @@
 #pragma kernel CSMain
 
-#include "./Include/SimplexNoise2.hlsl"
+#include "./Include/perlin.hlsl"
 
 struct NoiseSettings {
   int octaves;
@@ -9,14 +9,29 @@ struct NoiseSettings {
   float noiseScale;
   float noiseStrength;
   float verticalOffset;
-  float weight;
   float oceanFloorThreshold;
+};
+
+struct RidgeNoiseSettings {
+  int octaves;
+  float lacunarity;
+  float persistence;
+  float noiseScale;
+  float noiseStrength;
+  float verticalOffset;
+  float power;
+  float gain;
+  float samplingDistance;
 };
 
 StructuredBuffer<float3> vertices;
 RWStructuredBuffer<float> heights;
 StructuredBuffer<NoiseSettings> noiseSettings;
+StructuredBuffer<RidgeNoiseSettings> ridgeNoiseSettings;
 float seedOffset[3];
+float ridgeMaskMin;
+float ridgeMaskMax;
+float oceanDepthMultiplier;
 
 float ContinentNoise (float3 position, NoiseSettings noiseSettings) {
     float noise = 0;
@@ -27,7 +42,7 @@ float ContinentNoise (float3 position, NoiseSettings noiseSettings) {
     // float3 warp = snoise( TrilinearRepeat, ws*0.004 ).xyz
 
     for (int j =0; j < noiseSettings.octaves; j ++) {
-        float n = snoise((position) * frequency + seedOffsetVector);
+        float n = cnoise((position) * frequency + seedOffsetVector);
         noise += n * amplitude;
         amplitude *= noiseSettings.persistence;
         frequency *= noiseSettings.lacunarity;
@@ -35,10 +50,44 @@ float ContinentNoise (float3 position, NoiseSettings noiseSettings) {
 
     //float elevation = max(0, (noise * noiseSettings.noiseStrength) - noiseSettings.minValue );
     float elevation = noise * noiseSettings.noiseStrength + noiseSettings.verticalOffset;
-    if(elevation < noiseSettings.oceanFloorThreshold) {
-      elevation = noiseSettings.oceanFloorThreshold;
-    }
     return elevation;
+}
+
+float ridgidNoise(float3 position, RidgeNoiseSettings ridgeNoiseSettings) {
+	// Extract parameters for readability
+
+	// Sum up noise layers
+	float noiseSum = 0;
+    float amplitude = 1;
+    float frequency = ridgeNoiseSettings.noiseScale;
+    float ridgeWeight = 1;
+    float3 seedOffsetVector = float3(seedOffset[0], seedOffset[1], seedOffset[2]);
+
+    for (int i = 0; i < ridgeNoiseSettings.octaves; i ++) {
+        float noiseVal = 1 - abs(cnoise((position) * frequency + seedOffsetVector));
+        noiseVal = pow(abs(noiseVal), ridgeNoiseSettings.power);
+        noiseVal *= ridgeWeight;
+        ridgeWeight = saturate(noiseVal * ridgeNoiseSettings.gain);
+
+        noiseSum += noiseVal * amplitude;
+        amplitude *= ridgeNoiseSettings.persistence;
+        frequency *= ridgeNoiseSettings.lacunarity;
+    }
+	return noiseSum * ridgeNoiseSettings.noiseStrength + ridgeNoiseSettings.verticalOffset;
+}
+
+float smoothedRidgidNoise(float3 pos, RidgeNoiseSettings ridgeNoiseSettings) {
+    float3 sphereNormal = normalize(pos);
+    float3 axisA = cross(sphereNormal, float3(0,1,0));
+    float3 axisB = cross(sphereNormal, axisA);
+
+    float offsetDst = ridgeNoiseSettings.samplingDistance * 0.01;
+    float sample0 = ridgidNoise(pos, ridgeNoiseSettings);
+    float sample1 = ridgidNoise(pos - axisA * offsetDst, ridgeNoiseSettings);
+    float sample2 = ridgidNoise(pos + axisA * offsetDst, ridgeNoiseSettings);
+    float sample3 = ridgidNoise(pos - axisB * offsetDst, ridgeNoiseSettings);
+    float sample4 = ridgidNoise(pos + axisB * offsetDst, ridgeNoiseSettings);
+    return (sample0 + sample1 + sample2 + sample3 + sample4) / 5;
 }
 
 [numthreads(512,1,1)]
@@ -54,7 +103,23 @@ void CSMain (uint id : SV_DispatchThreadID) {
   float3 position = vertices[id];
   float continentElevation = ContinentNoise(position, noiseSettings[0]);
 
-  float finalHeight = 1 + continentElevation* 0.01;
+  // everything below 0 is underwater
+  if(continentElevation < 0) {
+      continentElevation *= (1 + oceanDepthMultiplier);
+      continentElevation = max(continentElevation, noiseSettings[0].oceanFloorThreshold);
+  }
+
+  float ridgeMaskNoise = ContinentNoise(position, noiseSettings[1]);
+
+  float ridgeElevation = smoothedRidgidNoise(position, ridgeNoiseSettings[0]);
+  // if(ridgeMaskNoise > ridgeMaskMin) {
+  //   ridgeElevation = smoothedRidgidNoise(position, ridgeNoiseSettings[0]);
+  //   float ridgeMask = min(1, ((ridgeMaskNoise - ridgeMaskMin)/(ridgeMaskMax - ridgeMaskMin)));
+  //   ridgeElevation *= ridgeMask;
+  // }
+  float mask = smoothstep(0 - ridgeMaskMin, 0 + ridgeMaskMin, ridgeMaskNoise);
+
+  float finalHeight = 1 + continentElevation* 0.01 + ridgeElevation* 0.01 * mask;
 
   heights[id] = finalHeight;
 }
