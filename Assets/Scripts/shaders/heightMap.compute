@@ -9,7 +9,6 @@ struct NoiseSettings {
   float noiseScale;
   float noiseStrength;
   float verticalOffset;
-  float oceanFloorThreshold;
 };
 
 struct RidgeNoiseSettings {
@@ -32,6 +31,7 @@ float seedOffset[3];
 float ridgeMaskMin;
 float ridgeMaskMax;
 float oceanDepthMultiplier;
+float oceanFloorThreshold;
 
 float ContinentNoise (float3 position, NoiseSettings noiseSettings) {
     float noise = 0;
@@ -67,7 +67,7 @@ float ridgidNoise(float3 position, RidgeNoiseSettings ridgeNoiseSettings) {
         float noiseVal = 1 - abs(cnoise((position) * frequency + seedOffsetVector));
         noiseVal = pow(abs(noiseVal), ridgeNoiseSettings.power);
         noiseVal *= ridgeWeight;
-        ridgeWeight = saturate(noiseVal * ridgeNoiseSettings.gain);
+        ridgeWeight = clamp(noiseVal * ridgeNoiseSettings.gain,0,1);
 
         noiseSum += noiseVal * amplitude;
         amplitude *= ridgeNoiseSettings.persistence;
@@ -76,18 +76,20 @@ float ridgidNoise(float3 position, RidgeNoiseSettings ridgeNoiseSettings) {
 	return noiseSum * ridgeNoiseSettings.noiseStrength + ridgeNoiseSettings.verticalOffset;
 }
 
-float smoothedRidgidNoise(float3 pos, RidgeNoiseSettings ridgeNoiseSettings) {
+// 
+float pcfRidgidNoise(float3 pos, RidgeNoiseSettings ridgeNoiseSettings) {
     float3 sphereNormal = normalize(pos);
-    float3 axisA = cross(sphereNormal, float3(0,1,0));
-    float3 axisB = cross(sphereNormal, axisA);
+    float3 right = cross(sphereNormal, float3(0,1,0));
+    float3 forward = cross(sphereNormal, right);
 
     float offsetDst = ridgeNoiseSettings.samplingDistance * 0.01;
-    float sample0 = ridgidNoise(pos, ridgeNoiseSettings);
-    float sample1 = ridgidNoise(pos - axisA * offsetDst, ridgeNoiseSettings);
-    float sample2 = ridgidNoise(pos + axisA * offsetDst, ridgeNoiseSettings);
-    float sample3 = ridgidNoise(pos - axisB * offsetDst, ridgeNoiseSettings);
-    float sample4 = ridgidNoise(pos + axisB * offsetDst, ridgeNoiseSettings);
-    return (sample0 + sample1 + sample2 + sample3 + sample4) / 5;
+    float aggregateSample = 0;
+    for (int i = -1; i<=1; i++) {
+      for (int j = -1; j<=1; j++) {
+        aggregateSample += ridgidNoise(pos + (right*i*offsetDst) + (forward*j*offsetDst), ridgeNoiseSettings);
+      }
+    }
+    return aggregateSample/9;
 }
 
 [numthreads(512,1,1)]
@@ -105,14 +107,14 @@ void CSMain (uint id : SV_DispatchThreadID) {
 
   // everything below 0 is underwater
   if(continentElevation < 0) {
-      continentElevation = max(continentElevation, noiseSettings[0].oceanFloorThreshold);
+      continentElevation = max(continentElevation, oceanFloorThreshold);
       continentElevation *= (1 + oceanDepthMultiplier);
   }
 
   float ridgeMaskNoise = ContinentNoise(position, noiseSettings[1]);
 
-  float ridgeElevation = smoothedRidgidNoise(position, ridgeNoiseSettings[0]);
-  float mask = smoothstep(ridgeMaskMin, ridgeMaskMax, ridgeMaskNoise);
+  float ridgeElevation = pcfRidgidNoise(position, ridgeNoiseSettings[0]);
+  float mask = smoothstep(0 - ridgeMaskMin, 0 + ridgeMaskMin, ridgeMaskNoise);
 
   float finalHeight = 1 + continentElevation* 0.01 + ridgeElevation* 0.01 * mask;
 

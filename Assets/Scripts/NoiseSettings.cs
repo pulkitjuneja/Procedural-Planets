@@ -6,7 +6,6 @@ public struct FlatlandNoiseSettings {
     public float noiseScale;
     public float noiseStrength;
     public float verticalOffset;
-    public float oceanFloorThreshold;
 }
 
 [System.Serializable]

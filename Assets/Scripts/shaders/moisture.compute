@@ -1,0 +1,13 @@
+#pragma kernel CSMain
+
+#include "./Include/perlin.hlsl"
+
+struct NoiseSettings {
+  int octaves;
+  float lacunarity;
+  float persistence;
+  float noiseScale;
+  float noiseStrength;
+  float verticalOffset;
+  float oceanFloorThreshold;
+};
