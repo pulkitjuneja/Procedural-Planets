@@ -1,5 +1,5 @@
 [System.Serializable]
-public struct FlatlandNoiseSettings {
+public struct SimpleNoiseSettings {
     public int octaves;
     public float lacunarity;
     public float persistence;

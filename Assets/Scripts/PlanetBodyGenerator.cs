@@ -4,24 +4,24 @@ using UnityEngine;
 public class PlanetBodyGenerator : MonoBehaviour {
   public ComputeShader heightMapCompute;
   public MeshFilter meshFilter;
-  public float radius = 1;
 
   [Header("Noise Settings")]
 
   [Min(0)]
   public int resolution;
+  public float radius = 1;
   public int seed;
   public float ridgeMaskMin;
   public float oceanDepthMultiplier;
   public float oceanFloorThreshold;
+  public Material terrainMaterial;
 
-  public FlatlandNoiseSettings flatlandNoiseSettings;
-  public FlatlandNoiseSettings ridgeMaskNoiseSettings;
+  public SimpleNoiseSettings flatlandNoiseSettings;
+  public SimpleNoiseSettings ridgeMaskNoiseSettings;
   public RidgeNoiseSettings ridgeNoiseSettings;
 
   OctaSphereGenerator sphereGenerator;
-  public ColourGenerator colourGenerator;
-
+  BiomeGenerator biomeGenerator;
   ComputeBuffer heightMapBuffer;
   ComputeBuffer vertexBuffer;
 
@@ -33,9 +33,41 @@ public class PlanetBodyGenerator : MonoBehaviour {
   }
 
   void OnValidate () {
-    colourGenerator.Init();
+    if(biomeGenerator == null) {
+      biomeGenerator = GetComponent<BiomeGenerator>();
+    }
+    biomeGenerator.onSettingsUpdated = Run;
+    Run();
+  }
+
+  public void Run () {
     var (minHeight, maxHeight) = generateTerrain();
-    colourGenerator.UpdateColors();
+    Vector2 [] moistureTemperatureData = biomeGenerator.generateMoistureAndTemperatureData(vertexBuffer, heightMapBuffer, minHeight, maxHeight);
+    float minMoisture = float.MaxValue, maxMoisture = float.MinValue;
+    float minTemperature = float.MaxValue, maxTemperature = float.MinValue;
+    float startTime = Time.realtimeSinceStartup;
+    foreach(Vector2 moistureData in moistureTemperatureData) {
+      if(moistureData.x > maxMoisture) {
+        maxMoisture = moistureData.x;
+      }
+      if(moistureData.x < minMoisture) {
+        minMoisture = moistureData.x;
+      }
+            
+      if(moistureData.y > maxTemperature) {
+        maxTemperature = moistureData.y;
+      }
+      if(moistureData.y < minTemperature) {
+        minTemperature = moistureData.y;
+      }
+    }
+    float endTime = Time.realtimeSinceStartup;
+    Debug.Log((endTime - startTime)* 1000);
+    planetMesh.SetUVs(3,moistureTemperatureData);
+    terrainMaterial.SetVector("moistureMinMax", new Vector4(minMoisture, maxMoisture));
+    terrainMaterial.SetVector("elevationMinMax", new Vector4(minHeight, maxHeight));
+    this.GetComponent<MeshRenderer>().material = terrainMaterial;
+    releaseBuffers();
   }
 
   (float, float) generateTerrain () {
@@ -64,10 +96,6 @@ public class PlanetBodyGenerator : MonoBehaviour {
 
     createMesh(vertices, triangles);
     scaleWithRadius();
-    releaseBuffers();
-
-    colourGenerator.maxElevation = maxHeight;
-    colourGenerator.minElevation = minHeight;
 
     return (minHeight, maxHeight);
   }
@@ -81,7 +109,7 @@ public class PlanetBodyGenerator : MonoBehaviour {
     buffersToRelease.Add(heightMapBuffer);
     
     // Noise setting buffers
-    FlatlandNoiseSettings [] noiseSettingsData = new FlatlandNoiseSettings [] {flatlandNoiseSettings, ridgeMaskNoiseSettings};
+    SimpleNoiseSettings [] noiseSettingsData = new SimpleNoiseSettings [] {flatlandNoiseSettings, ridgeMaskNoiseSettings};
     RidgeNoiseSettings [] ridgeNoiseData = new RidgeNoiseSettings[] {ridgeNoiseSettings};
 
     ComputeBuffer noiseSettingsBuffer = new ComputeBuffer(noiseSettingsData.Length, sizeof(int) + 5*sizeof(float));

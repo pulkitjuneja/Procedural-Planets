@@ -1,0 +1,58 @@
+#pragma kernel CSMain
+
+#include "../Include/NoiseSettings.hlsl"
+
+StructuredBuffer<float3> vertices;
+StructuredBuffer<float> heights;
+StructuredBuffer<SimpleNoiseSettings> moistureNoiseSettings;
+RWStructuredBuffer<float2> moisture;
+float moistureSeedOffset[3];
+float temperatureSeedOffset[3];
+float minHeight, maxHeight;
+float moistureHeightInfluence;
+float temperatureHeightInfluence;
+float temperatureHeightWeight;
+float3 planetUp;
+
+float SimpleNoise01 (float3 position, SimpleNoiseSettings noiseSettings,  float3 seedOffsetVector) {
+    float noise = 0;
+
+    float frequency = noiseSettings.noiseScale;
+    float amplitude = 1;
+    // float3 warp = snoise( TrilinearRepeat, ws*0.004 ).xyz
+
+    for (int j =0; j < noiseSettings.octaves; j ++) {
+        float n = cnoise((position) * frequency + seedOffsetVector);
+        noise += n * amplitude;
+        amplitude *= noiseSettings.persistence;
+        frequency *= noiseSettings.lacunarity;
+    }
+
+    //float elevation = max(0, (noise * noiseSettings.noiseStrength) - noiseSettings.minValue );
+    float elevation = noise * noiseSettings.noiseStrength + noiseSettings.verticalOffset;
+    return elevation;
+}
+
+[numthreads(512,1,1)]
+void CSMain (uint id : SV_DispatchThreadID) {
+  uint numVertices;
+  uint verticeStride;
+  vertices.GetDimensions(numVertices, verticeStride);
+
+  if(id >= numVertices) {
+    return;
+  }
+  float3 position = vertices[id];
+  float3 moistureSeedOffsetVector = float3(moistureSeedOffset[0], moistureSeedOffset[1], moistureSeedOffset[2]);
+  float3 temperatureSeedOffsetVector = float3(temperatureSeedOffset[0], temperatureSeedOffset[1], temperatureSeedOffset[2]);
+
+  float heightFraction = (heights[id] - minHeight)/(maxHeight - minHeight);
+
+  // The moistuire value depends on only the height
+  float moistureValue = SimpleNoise01(position, moistureNoiseSettings[0], moistureSeedOffsetVector) + (0.7 - heightFraction) * moistureHeightInfluence;
+  
+  // The temperature depends on the lat long of the planet as well as the height at the vertex
+  float temperatureValue = -abs(dot(normalize(position),planetUp)) + SimpleNoise01(position, moistureNoiseSettings[0], temperatureSeedOffsetVector) * 0.1 - (saturate(heights[id]) * temperatureHeightInfluence);
+
+  moisture[id] = float2(moistureValue, temperatureValue);
+}
