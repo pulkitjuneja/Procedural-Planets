@@ -9,6 +9,15 @@ struct SimpleNoiseSettings {
   float verticalOffset;
 };
 
+struct SimpleNoise01Settings {
+  int octaves;
+  float lacunarity;
+  float persistence;
+  float noiseScale;
+  float offset;
+  float gain;
+};
+
 struct RidgeNoiseSettings {
   int octaves;
   float lacunarity;

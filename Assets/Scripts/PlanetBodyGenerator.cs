@@ -14,7 +14,6 @@ public class PlanetBodyGenerator : MonoBehaviour {
   public float ridgeMaskMin;
   public float oceanDepthMultiplier;
   public float oceanFloorThreshold;
-  public Material terrainMaterial;
 
   public SimpleNoiseSettings flatlandNoiseSettings;
   public SimpleNoiseSettings ridgeMaskNoiseSettings;
@@ -40,33 +39,18 @@ public class PlanetBodyGenerator : MonoBehaviour {
     Run();
   }
 
+  void Start () {
+    Run();
+  }
+
   public void Run () {
     var (minHeight, maxHeight) = generateTerrain();
-    Vector2 [] moistureTemperatureData = biomeGenerator.generateMoistureAndTemperatureData(vertexBuffer, heightMapBuffer, minHeight, maxHeight);
-    float minMoisture = float.MaxValue, maxMoisture = float.MinValue;
-    float minTemperature = float.MaxValue, maxTemperature = float.MinValue;
     float startTime = Time.realtimeSinceStartup;
-    foreach(Vector2 moistureData in moistureTemperatureData) {
-      if(moistureData.x > maxMoisture) {
-        maxMoisture = moistureData.x;
-      }
-      if(moistureData.x < minMoisture) {
-        minMoisture = moistureData.x;
-      }
-            
-      if(moistureData.y > maxTemperature) {
-        maxTemperature = moistureData.y;
-      }
-      if(moistureData.y < minTemperature) {
-        minTemperature = moistureData.y;
-      }
-    }
+    Vector2 [] moistureTemperatureData = biomeGenerator.generateMoistureAndTemperatureData(vertexBuffer, heightMapBuffer, minHeight, maxHeight);
+    biomeGenerator.updateShadingData(ref moistureTemperatureData, minHeight, maxHeight);
     float endTime = Time.realtimeSinceStartup;
-    Debug.Log((endTime - startTime)* 1000);
+    Debug.Log((endTime-startTime)* 1000);
     planetMesh.SetUVs(3,moistureTemperatureData);
-    terrainMaterial.SetVector("moistureMinMax", new Vector4(minMoisture, maxMoisture));
-    terrainMaterial.SetVector("elevationMinMax", new Vector4(minHeight, maxHeight));
-    this.GetComponent<MeshRenderer>().material = terrainMaterial;
     releaseBuffers();
   }
 
@@ -120,13 +104,13 @@ public class PlanetBodyGenerator : MonoBehaviour {
     ridgeNoiseSettingsBuffer.SetData(ridgeNoiseData);
 
     RNGHelper random = new RNGHelper(seed);
-    float [] seedOffset = new float []{random.nextDouble(), random.nextDouble(), random.nextDouble()};
+    Vector3 seedOffset = new Vector3(random.nextDouble(), random.nextDouble(), random.nextDouble());
 
     heightMapCompute.SetBuffer(0, "vertices", vertexBuffer);
     heightMapCompute.SetBuffer(0, "heights", heightMapBuffer);
     heightMapCompute.SetBuffer(0, "noiseSettings", noiseSettingsBuffer);
     heightMapCompute.SetBuffer(0, "ridgeNoiseSettings", ridgeNoiseSettingsBuffer);
-    heightMapCompute.SetFloats("seedOffset", seedOffset);
+    heightMapCompute.SetVector("seedOffset", seedOffset);
     heightMapCompute.SetFloat("ridgeMaskMin", ridgeMaskMin);
     heightMapCompute.SetFloat("oceanDepthMultiplier", oceanDepthMultiplier);
     heightMapCompute.SetFloat("oceanFloorThreshold", oceanFloorThreshold);

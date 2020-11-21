@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using UnityEditor;
 
 public class BiomeGenerator : MonoBehaviour {
 
@@ -9,17 +10,48 @@ public class BiomeGenerator : MonoBehaviour {
   [Header("Noise Settings")]
 
   // how much should the height affect the moisture Value
+  [Header("Temperature and moisture Settings")]
+
   public float moistureHeightInfluence;
   public float temperatureHeightInfluence;
   public int moistureSeed;
   public int temperatureSeed;
-  public SimpleNoiseSettings moistureNoise;
-  public SimpleNoiseSettings temperatureNoise;
+  public SimpleNoise01Settings moistureNoise;
+  public SimpleNoise01Settings temperatureNoise;
+
+  [Header("Biome setttings")]
+
+  [Range(0,5)]
+  public int numMoistureRegions;
+
+  [Range(0,5)]
+  public int numTemperatureRegions;
+  public Biome [] biomes;
   public Action onSettingsUpdated;
+  public Material terrainMaterial;
 
   List<ComputeBuffer> buffersToRelease = new List<ComputeBuffer>();
 
   void OnValidate() {
+    // check that there are no duplicate biomes
+    Array.Resize(ref biomes, numMoistureRegions * numMoistureRegions);
+    bool areBiomesValid = true;
+
+    for(int i = 0 ; i< biomes.Length; i++) {
+      for (int j = 0; j< biomes.Length; j++) {
+        if (i == j ) 
+          continue;
+        else if (biomes[i].Equals(biomes[j])) {
+          areBiomesValid = false;
+          break;
+        }
+      }
+    }    
+
+    if(!areBiomesValid) {
+      Debug.Log("Duplicate biome indexes");
+    }
+
     if(onSettingsUpdated != null) {
        onSettingsUpdated.Invoke();
     }
@@ -29,24 +61,37 @@ public class BiomeGenerator : MonoBehaviour {
     ComputeBuffer moistureTemperatureBuffer = new ComputeBuffer(vertexBuffer.count,2 * sizeof(float));
     buffersToRelease.Add(moistureTemperatureBuffer); 
 
-    SimpleNoiseSettings []  moisteureNoiseData = new SimpleNoiseSettings [] {moistureNoise, temperatureNoise};
+    SimpleNoise01Settings []  moisteureNoiseData = new SimpleNoise01Settings [] {moistureNoise, temperatureNoise};
     ComputeBuffer moistureNoiseSettingsBUffer = new ComputeBuffer(moisteureNoiseData.Length, sizeof(int) + 5*sizeof(float));
     moistureNoiseSettingsBUffer.SetData(moisteureNoiseData);
     buffersToRelease.Add(moistureNoiseSettingsBUffer);
 
     RNGHelper random = new RNGHelper(moistureSeed);
-    float [] moistureSeedOffset = new float []{random.nextDouble(), random.nextDouble(), random.nextDouble()};
+    Vector2 moistureSeedOffset = new Vector3(random.nextDouble(), random.nextDouble(), random.nextDouble());
     random = new RNGHelper(temperatureSeed);
-    float [] temperatureSeedOffset = new float []{random.nextDouble(), random.nextDouble(), random.nextDouble()};
+    Vector3 temperatureSeedOffset = new Vector3(random.nextDouble(), random.nextDouble(), random.nextDouble());
+
+    float [] temperatureMoistureBiomeMap = new float [numMoistureRegions*numTemperatureRegions];
+    for(int i = 0 ; i< biomes.Length; i++) {
+      int position = biomes[i].moistureRegionIndex * numTemperatureRegions + biomes[i].temperatureRegionIndex;
+      temperatureMoistureBiomeMap[position] = i;
+    }
+
+    ComputeBuffer temperatureMoistureBiomeMapBuffer = new ComputeBuffer(temperatureMoistureBiomeMap.Length, sizeof(float));
+    temperatureMoistureBiomeMapBuffer.SetData(temperatureMoistureBiomeMap);
+    buffersToRelease.Add(temperatureMoistureBiomeMapBuffer); 
 
     moistureCompute.SetBuffer(0, "vertices", vertexBuffer);
     moistureCompute.SetBuffer(0, "heights", heightMapBuffer);
     moistureCompute.SetBuffer(0, "moisture", moistureTemperatureBuffer);
     moistureCompute.SetBuffer(0, "moistureNoiseSettings", moistureNoiseSettingsBUffer);
-    moistureCompute.SetFloats("moistureSeedOffset", moistureSeedOffset);
-    moistureCompute.SetFloats("temperatureSeedOffset", temperatureSeedOffset);
+    moistureCompute.SetBuffer(0, "temperatureMoistureBiomeMap", temperatureMoistureBiomeMapBuffer);
+    moistureCompute.SetVector("moistureSeedOffset", moistureSeedOffset);
+    moistureCompute.SetVector("temperatureSeedOffset", temperatureSeedOffset);
     moistureCompute.SetFloat("minHeight", minHeight);
     moistureCompute.SetFloat("maxHeight", maxHeight);
+    moistureCompute.SetFloat("numMoistureRegions", numMoistureRegions);
+    moistureCompute.SetFloat("numTemperatureRegions", numTemperatureRegions);
     moistureCompute.SetFloat("moistureHeightInfluence", moistureHeightInfluence);
     moistureCompute.SetFloat("temperatureHeightInfluence", temperatureHeightInfluence);
     moistureCompute.SetVector("planetUp", transform.up);
@@ -64,7 +109,30 @@ public class BiomeGenerator : MonoBehaviour {
     return moistureTemperatureData;
   }
 
-    void releaseBuffers () {
+  public void updateShadingData (ref Vector2 [] moistureTemperatureData, float minHeight, float maxHeight) {
+    terrainMaterial.SetVector("elevationMinMax", new Vector4(minHeight, maxHeight));
+    Texture2D outputTex = generateBiomeTexture();
+    byte[] _bytes =outputTex.EncodeToPNG();
+    System.IO.File.WriteAllBytes("./Assets/biomesTex.png", _bytes);
+    terrainMaterial.SetTexture("biomeTexture", outputTex);
+    terrainMaterial.SetFloat("numMoistureRegions", numMoistureRegions);
+    terrainMaterial.SetFloat("numTemperatureRegions", numTemperatureRegions);
+    this.GetComponent<MeshRenderer>().material = terrainMaterial;
+  }
+  
+  Texture2D generateBiomeTexture () {
+    int textureResolution = 256;
+    Texture2D outputTex = new Texture2D(textureResolution, numMoistureRegions * numTemperatureRegions, TextureFormat.ARGB32, false, false);
+    outputTex.filterMode = FilterMode.Point;
+    for(int i = 0; i < biomes.Length; i ++) {
+      for(int j = 0 ; j <textureResolution ; j++ ) {
+        outputTex.SetPixel(j,i, biomes[i].biomeColors.Evaluate((float)j/(float)256));
+      }
+    }
+    return outputTex;
+  }
+
+  void releaseBuffers () {
     foreach(ComputeBuffer buffer in buffersToRelease) {
       buffer.Release();
     }

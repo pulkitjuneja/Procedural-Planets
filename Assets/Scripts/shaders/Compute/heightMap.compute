@@ -6,7 +6,7 @@ StructuredBuffer<float3> vertices;
 RWStructuredBuffer<float> heights;
 StructuredBuffer<SimpleNoiseSettings> noiseSettings;
 StructuredBuffer<RidgeNoiseSettings> ridgeNoiseSettings;
-float seedOffset[3]; 
+float3 seedOffset; 
 float ridgeMaskMin;
 float ridgeMaskMax;
 float oceanDepthMultiplier;
@@ -62,8 +62,7 @@ void CSMain (uint id : SV_DispatchThreadID) {
   }
 
   float3 position = vertices[id];
-  float3 seedOffsetVector = float3(seedOffset[0], seedOffset[1], seedOffset[2]);
-  float continentElevation = ContinentNoise(position, noiseSettings[0], seedOffsetVector);
+  float continentElevation = ContinentNoise(position, noiseSettings[0], seedOffset);
 
   // everything below 0 is underwater
   if(continentElevation < 0) {
@@ -71,9 +70,9 @@ void CSMain (uint id : SV_DispatchThreadID) {
       continentElevation *= (1 + oceanDepthMultiplier);
   }
 
-  float ridgeMaskNoise = ContinentNoise(position, noiseSettings[1], seedOffsetVector);
+  float ridgeMaskNoise = ContinentNoise(position, noiseSettings[1], seedOffset);
 
-  float ridgeElevation = pcfRidgidNoise(position, ridgeNoiseSettings[0], seedOffsetVector);
+  float ridgeElevation = pcfRidgidNoise(position, ridgeNoiseSettings[0], seedOffset);
   float mask = smoothstep(0 - ridgeMaskMin, 0 + ridgeMaskMin, ridgeMaskNoise);
 
   float finalHeight = 1 + continentElevation* 0.01 + ridgeElevation* 0.01 * mask;

@@ -4,33 +4,56 @@
 
 StructuredBuffer<float3> vertices;
 StructuredBuffer<float> heights;
-StructuredBuffer<SimpleNoiseSettings> moistureNoiseSettings;
+StructuredBuffer<SimpleNoise01Settings> moistureNoiseSettings;
 RWStructuredBuffer<float2> moisture;
-float moistureSeedOffset[3];
-float temperatureSeedOffset[3];
+StructuredBuffer<float> temperatureMoistureBiomeMap;
+float3 moistureSeedOffset;
+float3 temperatureSeedOffset;
 float minHeight, maxHeight;
 float moistureHeightInfluence;
 float temperatureHeightInfluence;
 float temperatureHeightWeight;
+float numMoistureRegions;
+float numTemperatureRegions;
 float3 planetUp;
 
-float SimpleNoise01 (float3 position, SimpleNoiseSettings noiseSettings,  float3 seedOffsetVector) {
-    float noise = 0;
+float SimpleNoise01(float3 pos, SimpleNoise01Settings noiseSettings, float3 moistureSeedOffset) {
+	// Parameters
+	float3 offset = noiseSettings.offset;
+	int numLayers = noiseSettings.octaves;
+	float persistence = noiseSettings.persistence;
+	float lacunarity = noiseSettings.lacunarity;
+	float scale = noiseSettings.noiseScale;
+  float gain = 1;
 
-    float frequency = noiseSettings.noiseScale;
+	// Sum up noise layers
+	float noiseSum = 0;
     float amplitude = 1;
-    // float3 warp = snoise( TrilinearRepeat, ws*0.004 ).xyz
+    float frequency = scale;
+    float weight = 1;
 
-    for (int j =0; j < noiseSettings.octaves; j ++) {
-        float n = cnoise((position) * frequency + seedOffsetVector);
-        noise += n * amplitude;
-        amplitude *= noiseSettings.persistence;
-        frequency *= noiseSettings.lacunarity;
-    }
+    for (int i = 0; i < numLayers; i ++) {
+        float noiseVal = cnoise(pos * frequency + moistureSeedOffset) * .5 + .5;
+        noiseVal *= weight;
+        weight = saturate(noiseVal * gain);
 
-    //float elevation = max(0, (noise * noiseSettings.noiseStrength) - noiseSettings.minValue );
-    float elevation = noise * noiseSettings.noiseStrength + noiseSettings.verticalOffset;
-    return elevation;
+        noiseSum += noiseVal * amplitude;
+        amplitude *= persistence;
+        frequency *= lacunarity;
+    }  
+	return saturate(noiseSum + offset);
+}
+
+int getBlendIndex (float value, int currentIndex) {
+  float regionStartThreshold = currentIndex*(1/numMoistureRegions) + 0.005;
+  float regionEndThreshold = (currentIndex + 1)*(1/numMoistureRegions) - 0.005;
+
+  float stepEnd = step(regionEndThreshold, value);
+  float stepStart = step(regionStartThreshold, value);
+
+  float blendNextIndex = lerp(clamp(currentIndex,0,numMoistureRegions-1), clamp(currentIndex + 1,0,numMoistureRegions-1), stepEnd);
+  int moistureBlendIndex = lerp(clamp(currentIndex - 1,0,numMoistureRegions -1), blendNextIndex, stepStart);
+  return moistureBlendIndex;
 }
 
 [numthreads(512,1,1)]
@@ -43,16 +66,43 @@ void CSMain (uint id : SV_DispatchThreadID) {
     return;
   }
   float3 position = vertices[id];
-  float3 moistureSeedOffsetVector = float3(moistureSeedOffset[0], moistureSeedOffset[1], moistureSeedOffset[2]);
-  float3 temperatureSeedOffsetVector = float3(temperatureSeedOffset[0], temperatureSeedOffset[1], temperatureSeedOffset[2]);
 
   float heightFraction = (heights[id] - minHeight)/(maxHeight - minHeight);
 
-  // The moistuire value depends on only the height
-  float moistureValue = SimpleNoise01(position, moistureNoiseSettings[0], moistureSeedOffsetVector) + (0.7 - heightFraction) * moistureHeightInfluence;
+  // The moistuire value depends on only the height and random noise, the value should be between 0 and 1 for biome computation
+  float moistureValue = 1 - saturate(SimpleNoise01(position, moistureNoiseSettings[0], moistureSeedOffset) + (0.7 - heightFraction) * moistureHeightInfluence);
   
-  // The temperature depends on the lat long of the planet as well as the height at the vertex
-  float temperatureValue = -abs(dot(normalize(position),planetUp)) + SimpleNoise01(position, moistureNoiseSettings[0], temperatureSeedOffsetVector) * 0.1 - (saturate(heights[id]) * temperatureHeightInfluence);
+  // The temperature depends on the lat long of the planet as well as the height at the vertex and should be clamped to 0 - 1 for biome computation
+  float temperatureNoise = SimpleNoise01(position, moistureNoiseSettings[1], temperatureSeedOffset)*2 -1;
+  float temperatureValue = saturate((1 - saturate(abs(dot(normalize(position),normalize(planetUp)))))+ temperatureNoise* 0.2 - clamp((( heightFraction - 0.7) * temperatureHeightInfluence),-1,1));
 
-  moisture[id] = float2(moistureValue, temperatureValue);
+  float moistureInterval = 1/numMoistureRegions;
+  float temperatureInterval = 1/numTemperatureRegions;
+  int moistureIndex = -1;
+  int temperatureIndex = -1;
+  for (int i = 1 ; i <= numMoistureRegions; i++) {
+    if(moistureValue <= (i*moistureInterval)) {
+      moistureIndex = i-1;
+      break;
+    }
+  }
+
+  int moistureBlendIndex = getBlendIndex(moistureValue, moistureIndex);
+
+  for (i = 1 ; i <= numTemperatureRegions; i++) {
+    if(temperatureValue <= (i*temperatureInterval)) {
+      temperatureIndex = i-1;
+      break;
+    }
+  }
+
+  int temperatureBlendIndex = getBlendIndex(temperatureValue, temperatureIndex);
+
+  int biomeIndexInt = temperatureMoistureBiomeMap[moistureIndex* numTemperatureRegions + temperatureIndex];
+  int biomeBlendIndexInt = temperatureMoistureBiomeMap[moistureBlendIndex* numTemperatureRegions + temperatureBlendIndex];
+
+  float biomeIndex = (float)biomeIndexInt / (float)(numMoistureRegions *numTemperatureRegions) + 0.02;
+  float biomeBlendIndex = (float)biomeBlendIndexInt / (float)(numMoistureRegions *numTemperatureRegions) + 0.02;
+
+  moisture[id] = float2(biomeIndex, temperatureIndex);
 }
