@@ -117,7 +117,6 @@ public class BiomeGenerator : MonoBehaviour {
     terrainMaterial.SetTexture("biomeTexture", outputTex);
     terrainMaterial.SetFloat("numMoistureRegions", numMoistureRegions);
     terrainMaterial.SetFloat("numTemperatureRegions", numTemperatureRegions);
-    this.GetComponent<MeshRenderer>().material = terrainMaterial;
   }
   
   Texture2D generateBiomeTexture () {

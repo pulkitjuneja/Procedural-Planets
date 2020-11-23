@@ -104,5 +104,5 @@ void CSMain (uint id : SV_DispatchThreadID) {
   float biomeIndex = (float)biomeIndexInt / (float)(numMoistureRegions *numTemperatureRegions) + 0.02;
   float biomeBlendIndex = (float)biomeBlendIndexInt / (float)(numMoistureRegions *numTemperatureRegions) + 0.02;
 
-  moisture[id] = float2(biomeIndex, temperatureIndex);
+  moisture[id] = float2(biomeIndex, moistureIndex);
 }
