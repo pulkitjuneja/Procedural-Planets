@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using ExtensionMethods;
 
 
 public class ChunkedPlanetBodyGenerator : MonoBehaviour {
@@ -25,6 +26,7 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
   ComputeBuffer heightMapBuffer;
   ComputeBuffer vertexBuffer;
 
+  List<Vector3> vegetationPlacementPoints;
   List<ComputeBuffer> buffersToRelease = new List<ComputeBuffer>();
 
 
@@ -43,8 +45,13 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     Vector2 [] moistureTemperatureData = biomeGenerator.generateMoistureAndTemperatureData(vertexBuffer, heightMapBuffer, minHeight, maxHeight);
     biomeGenerator.updateShadingData(ref moistureTemperatureData, minHeight, maxHeight);
     float endTime = Time.realtimeSinceStartup;
-    Debug.Log((endTime-startTime)* 1000);
     setFaceChunkUVs(moistureTemperatureData);
+    vegetationPlacementPoints = new List<Vector3>();
+    for (int i = 0; i < FaceChunks.Length; i++) {
+      List<Vector3> pointsToAdd = FaceChunks[i].getPointsForObjectPlacement(resolution, meshFilters[i].gameObject.transform, 5, 40);
+      vegetationPlacementPoints.AddRange(pointsToAdd);
+    }
+      Debug.Log((endTime-startTime)* 1000);
     releaseBuffers();
   }
 
@@ -116,6 +123,7 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     int currentMeshStartIndex = 0;
     for(int i = 0 ;i < FaceChunks.Length ; i ++) {
       FaceChunks[i].updateMesh(cumulatedVertices.GetRange(currentMeshStartIndex,FaceChunks[i].vertexCount).ToArray());
+      FaceChunks[i].updateUVs(4, heights.SubArray(currentMeshStartIndex,FaceChunks[i].vertexCount));
       meshFilters[i].sharedMesh = FaceChunks[i].mesh;
       currentMeshStartIndex += FaceChunks[i].vertexCount;
     }
@@ -140,6 +148,7 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
 
     ComputeBuffer ridgeNoiseSettingsBuffer = new ComputeBuffer(ridgeNoiseData.Length, sizeof(int) + 8*sizeof(float));
     ridgeNoiseSettingsBuffer.SetData(ridgeNoiseData);
+    buffersToRelease.Add(ridgeNoiseSettingsBuffer);
 
     RNGHelper random = new RNGHelper(seed);
     Vector3 seedOffset = new Vector3(random.nextDouble(), random.nextDouble(), random.nextDouble());
@@ -162,6 +171,12 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
   void releaseBuffers () {
     foreach(ComputeBuffer buffer in buffersToRelease) {
       buffer.Release();
+    }
+  }
+
+  void OnDrawGizmos () {
+    foreach (Vector3 vertex in vegetationPlacementPoints) {
+      Gizmos.DrawSphere(vertex, 1);
     }
   }
 

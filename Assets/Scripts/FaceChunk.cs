@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Collections;
 
 
 public class FaceChunk {
@@ -13,6 +14,7 @@ public class FaceChunk {
   float yIndex;
   int [] triangles;
   Vector3 [] vertices;
+
 
   public FaceChunk (Vector3 localUp, float xIndex, float yIndex) {
     this.localUp = localUp;
@@ -66,6 +68,73 @@ public class FaceChunk {
     return vertices;
   }
 
+  public List<Vector3> getPointsForObjectPlacement (int resolution, Transform worldTransform, float minDistance, float numIterations) {
+    List<Vector3> vertices = new List<Vector3>();
+    List<Vector3> normals = new List<Vector3>();
+    List<Vector2> heights = new List<Vector2>();
+    List<Vector3> vegetationPlacementPoints = new List<Vector3>();
+
+    mesh.GetVertices(vertices);
+    mesh.GetNormals(normals);
+    mesh.GetUVs(4,heights);
+
+    int centerVertexPosition;
+    if (resolution%2 == 0) {
+      centerVertexPosition = resolution*resolution/2 + resolution/2 -1;
+    } else {
+      centerVertexPosition = resolution*resolution/2;
+    }
+    int [] directions = new int[]{resolution, -resolution, 1, -1};
+
+
+    // sample points in all directions
+    int currentStartingPoint = centerVertexPosition;
+    for(int i = 0; i< numIterations; i ++) {
+      int randomDirection = directions[Random.Range(0,4)];
+      int randomDistance = Random.Range(0,resolution/2);
+      // sample random point
+      int pointIndex = currentStartingPoint + randomDirection*randomDistance;
+
+      // check if point is in bounds and avoid edges of chunk
+      if(pointIndex < 0 || pointIndex > resolution * resolution || pointIndex > resolution*(resolution - 2) || pointIndex/resolution == 0 || (pointIndex+1)/resolution == 0) {
+        continue;
+      }
+
+      float nextPointSelection = Random.Range(0,1);
+      currentStartingPoint = nextPointSelection > 0.7 ? currentStartingPoint : pointIndex;
+
+      Vector3 pointVertex = vertices[pointIndex];
+      Vector3 pointNormal = normals[pointIndex];
+      float height = heights[pointIndex].x;
+
+      //check if random point is not in min range of any existing point
+      bool isValid = true;
+      foreach(Vector3 point in vegetationPlacementPoints) {
+        float distance = Vector3.Distance(point, worldTransform.TransformPoint(pointVertex));
+        if(distance < minDistance) {
+          isValid = false;
+          break;
+        }
+      }
+
+      if(isValid == false) {
+        continue;
+      }
+
+      if(height < 1 || height > 1.05) {
+        continue;
+      }
+
+      float steepness = 1 - Mathf.Pow(Vector3.Dot(pointVertex.normalized, pointNormal.normalized), 4);
+      if(steepness > 0.2) {
+        continue;
+      }
+      vegetationPlacementPoints.Add(worldTransform.TransformPoint(pointVertex));
+    }
+
+    return vegetationPlacementPoints;
+  }
+
   public void updateMesh (Vector3 [] vertices) {
     mesh.Clear();
     mesh.SetVertices (vertices);
@@ -75,6 +144,14 @@ public class FaceChunk {
 
   public void updateUVs (int channel, Vector2 [] uvData) {
     mesh.SetUVs(channel,uvData);
+  }
+
+  public void updateUVs (int channel, float [] uvData) {
+    Vector2 [] uvDataVector = new Vector2[uvData.Length];
+    for (int i = 0 ;i < uvData.Length; i++) {
+      uvDataVector[i] = new Vector2(uvData[i], 0);
+    }
+    mesh.SetUVs(channel,uvDataVector);
   }
 
 }
