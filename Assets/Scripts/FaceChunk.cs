@@ -68,15 +68,17 @@ public class FaceChunk {
     return vertices;
   }
 
-  public List<Vector3> getPointsForObjectPlacement (int resolution, Transform worldTransform, float minDistance, float numIterations) {
+  public List<ObjectPlacementInfo> getPointsForObjectPlacement (int resolution, Transform worldTransform, float minDistance, float numIterations) {
     List<Vector3> vertices = new List<Vector3>();
     List<Vector3> normals = new List<Vector3>();
     List<Vector2> heights = new List<Vector2>();
-    List<Vector3> vegetationPlacementPoints = new List<Vector3>();
+    List<Vector2> biomeData = new List<Vector2>();
+    List<ObjectPlacementInfo> vegetationPlacementPoints = new List<ObjectPlacementInfo>();
 
     mesh.GetVertices(vertices);
     mesh.GetNormals(normals);
     mesh.GetUVs(4,heights);
+    mesh.GetUVs(3, biomeData);
 
     int centerVertexPosition;
     if (resolution%2 == 0) {
@@ -106,11 +108,12 @@ public class FaceChunk {
       Vector3 pointVertex = vertices[pointIndex];
       Vector3 pointNormal = normals[pointIndex];
       float height = heights[pointIndex].x;
+      float biomeIndex = biomeData[pointIndex].x;
 
       //check if random point is not in min range of any existing point
       bool isValid = true;
-      foreach(Vector3 point in vegetationPlacementPoints) {
-        float distance = Vector3.Distance(point, worldTransform.TransformPoint(pointVertex));
+      foreach(ObjectPlacementInfo point in vegetationPlacementPoints) {
+        float distance = Vector3.Distance(point.worldPosition, worldTransform.TransformPoint(pointVertex));
         if(distance < minDistance) {
           isValid = false;
           break;
@@ -129,9 +132,8 @@ public class FaceChunk {
       if(steepness > 0.2) {
         continue;
       }
-      vegetationPlacementPoints.Add(worldTransform.TransformPoint(pointVertex));
+      vegetationPlacementPoints.Add(new ObjectPlacementInfo(worldTransform.TransformPoint(pointVertex),worldTransform.TransformVector(pointNormal), (int)biomeIndex));
     }
-
     return vegetationPlacementPoints;
   }
 

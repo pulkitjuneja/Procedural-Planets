@@ -14,6 +14,8 @@ public class Biome : IEquatable<Biome>{
   public int moistureRegionIndex;
   public Gradient biomeColors;
 
+  public GameObject [] TreePrefabs;
+
   public bool Equals (Biome other) {
     if(other.temperatureRegionIndex == temperatureRegionIndex && other.moistureRegionIndex == moistureRegionIndex) {
       return true;

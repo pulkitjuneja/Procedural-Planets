@@ -9,6 +9,7 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
   public int resolution;
   public int chunkResolution;
   public int seed;
+  public int radius;
   public float ridgeMaskMin;
   public float oceanDepthMultiplier;
   public float oceanFloorThreshold;
@@ -23,6 +24,7 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
 
   FaceChunk [] FaceChunks;
   BiomeGenerator biomeGenerator;
+  TreeGenerator treeGenerator;
   ComputeBuffer heightMapBuffer;
   ComputeBuffer vertexBuffer;
 
@@ -33,6 +35,9 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
   void OnValidate () {
     if(biomeGenerator == null) {
       biomeGenerator = GetComponent<BiomeGenerator>();
+    }
+    if(treeGenerator == null) {
+      treeGenerator = GetComponent<TreeGenerator>();
     }
     biomeGenerator.onSettingsUpdated = Run;
     Run();
@@ -47,11 +52,9 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     float endTime = Time.realtimeSinceStartup;
     setFaceChunkUVs(moistureTemperatureData);
     vegetationPlacementPoints = new List<Vector3>();
-    for (int i = 0; i < FaceChunks.Length; i++) {
-      List<Vector3> pointsToAdd = FaceChunks[i].getPointsForObjectPlacement(resolution, meshFilters[i].gameObject.transform, 5, 40);
-      vegetationPlacementPoints.AddRange(pointsToAdd);
-    }
-      Debug.Log((endTime-startTime)* 1000);
+    treeGenerator.GenerateTrees(FaceChunks,resolution,meshFilters, biomeGenerator.biomes);
+    Debug.Log((endTime-startTime)* 1000);
+    scaleWithRadius();
     releaseBuffers();
   }
 
@@ -128,6 +131,10 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
       currentMeshStartIndex += FaceChunks[i].vertexCount;
     }
     return (minHeight, maxHeight);
+  }
+
+  void scaleWithRadius () {
+    this.transform.localScale = new Vector3(radius, radius, radius);
   }
 
   int prepareHeightComputeData (Vector3[] vertices) {
