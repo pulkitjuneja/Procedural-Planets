@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 using ExtensionMethods;
 using Unity.Collections;
@@ -7,9 +8,8 @@ using Unity.Jobs;
 public class TreeGenerator : MonoBehaviour {
   public float minDistanceBetweenTrees;
   public int numIterations;
-
-  FindObjectPlacementPositionsJob getVegetationPositionsJob;
-
+  public GameObject treeParent;
+  List<GameObject> generatedTrees;
   List<ObjectPlacementInfo> vegetationPlacementPoints;
 
   public void GenerateTrees (FaceChunk[] faceChunks, int resolution, MeshFilter[] meshFilters, Biome [] biomes) {
@@ -26,22 +26,39 @@ public class TreeGenerator : MonoBehaviour {
   }
 
   void placeTrees (Biome [] biomes) {
-    Transform treeParent = transform.Find("Trees");
-    if(treeParent != null) {
-      for (int i = treeParent.childCount; i > 0; --i) {
-        UnityEditor.EditorApplication.delayCall += () => DestroyImmediate(this.transform.GetChild(0).gameObject);
+    if(treeParent == null) {
+      treeParent = new GameObject("Trees");
+      treeParent.transform.parent = transform;
+      treeParent.transform.localScale = new Vector3(1,1,1);
+    }
+
+    // remove existing trees
+    if(!Application.isPlaying) {
+      Debug.Log(generatedTrees.Count);
+      foreach (GameObject tree in generatedTrees) {
+         UnityEditor.EditorApplication.delayCall+=()=>{DestroyImmediate(tree);};
+      }
+    } else {
+      foreach (GameObject tree in generatedTrees) { 
+        Destroy(tree);
       }
     }
-    treeParent = new GameObject("Trees").transform;
-    treeParent.parent = transform;
-    treeParent.localScale = new Vector3(1,1,1);
+    
+    Debug.Log(vegetationPlacementPoints.Count);
+    // generate new trees
     foreach(ObjectPlacementInfo point in vegetationPlacementPoints) {
       GameObject treePrefab = biomes[0].TreePrefabs[0];
       Vector3 position = point.worldPosition;
-      GameObject tree = Instantiate(treePrefab,position, Quaternion.identity, treeParent);
+      GameObject tree = Instantiate(treePrefab,position, Quaternion.identity, treeParent.transform);
       tree.transform.localScale = treePrefab.transform.localScale;
       tree.transform.up = point.normal.normalized;
+      generatedTrees.Add(tree);
     }
+  }
+
+  IEnumerator DestroyTree (GameObject tree) {
+    yield return new WaitForEndOfFrame();
+    DestroyImmediate(tree); 
   }
 
   void OnDrawGizmos () {

@@ -57,7 +57,7 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     scaleWithRadius();
     releaseBuffers();
   }
-
+  
   void UpdateChunks() {
     int chunkArraySize = chunkResolution*chunkResolution*6;
     if (meshFilters == null || meshFilters.Length != chunkArraySize) {
@@ -129,6 +129,7 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
       FaceChunks[i].updateUVs(4, heights.SubArray(currentMeshStartIndex,FaceChunks[i].vertexCount));
       meshFilters[i].sharedMesh = FaceChunks[i].mesh;
       currentMeshStartIndex += FaceChunks[i].vertexCount;
+      meshFilters[i].gameObject.transform.localPosition = new Vector3(0,0,0);
     }
     return (minHeight, maxHeight);
   }
