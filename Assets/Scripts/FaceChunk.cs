@@ -5,8 +5,13 @@ using Unity.Collections;
 
 
 public class FaceChunk {
-  public Mesh mesh;
+  
+  Dictionary<int, Mesh> lodMeshes;
+  GameObject worldParent;
   public int vertexCount;
+  public Bounds chunkBounds;
+  int currentResolution;
+  LODInfo [] detailLevels;
   Vector3 localUp;
   Vector3 axisA;
   Vector3 axisB;
@@ -16,51 +21,98 @@ public class FaceChunk {
   Vector3 [] vertices;
 
 
-  public FaceChunk (Vector3 localUp, float xIndex, float yIndex) {
+
+  public FaceChunk (int chunkResolution, Vector3 localUp, float xIndex, float yIndex, LODInfo [] detailLevels, GameObject worldParent) {
     this.localUp = localUp;
 
     axisA = new Vector3(localUp.y, localUp.z, localUp.x);
     axisB = Vector3.Cross(localUp, axisA);
 
-      if(mesh ==  null) {
-      mesh = new Mesh();
-      mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+    lodMeshes = new Dictionary<int, Mesh>(detailLevels.Length);
+    for (int i = 0; i < detailLevels.Length; i++) {
+      lodMeshes.Add(detailLevels[i].lod, new Mesh());
     }
 
+    this.detailLevels = detailLevels;
 
     this.xIndex = xIndex;
     this.yIndex = yIndex;
+
+    this.worldParent = worldParent; 
+    updateMeshWorldBounds(chunkResolution);
   }
 
-  public void generateMesh (int resolution, int chunkResolution) {
+  public int getResolutionBasedOnCameraDistance (int chunkResolution) {
+    updateMeshWorldBounds(chunkResolution);
+    float distanceFromCamera = Mathf.Sqrt(chunkBounds.SqrDistance(Camera.main.transform.position));
+    float maxViewDistance = detailLevels[detailLevels.Length -1].visibleDstThreshold;
+
+    int lodIndex = 0;
+    for(int i = 0; i < detailLevels.Length -1; i++) {
+      if(distanceFromCamera > detailLevels[i].visibleDstThreshold) {
+        lodIndex += 1;
+      } else {
+        break;
+      }
+    }
+
+    return detailLevels[lodIndex].lod;
+  }
+
+  void updateMeshWorldBounds (int chunkResolution) {
+    generateMesh(chunkResolution, 8);
+
+    // TODO find a better way to do this
+    Mesh tempMesh = new Mesh();
+    tempMesh.SetVertices(vertices);
+    Bounds objectSpaceBounds = tempMesh.bounds;
+    var center = worldParent.transform.TransformPoint(objectSpaceBounds.center);
+
+    var extents = objectSpaceBounds.extents;
+    var axisX = worldParent.transform.TransformVector(extents.x, 0, 0);
+    var axisY = worldParent.transform.TransformVector(0, extents.y, 0);
+    var axisZ = worldParent.transform.TransformVector(0, 0, extents.z);
+
+    // sum their absolute value to get the world extents
+    extents.x = (axisX.x) + (axisY.x) + (axisZ.x);
+    extents.y = (axisX.y) + (axisY.y) + (axisZ.y);
+    extents.z = (axisX.z) + (axisY.z) + (axisZ.z);
+
+    chunkBounds = new Bounds { center = center, extents = extents };
+    Object.DestroyImmediate(tempMesh);
+  }
+
+  public void generateMesh (int chunkResolution, int resolution = -1) {
+    currentResolution = resolution == -1 ? getResolutionBasedOnCameraDistance(chunkResolution) : resolution;
     float UVStep = 1f/chunkResolution;
-    float step = UVStep/(resolution-1);
+    float step = UVStep/(currentResolution-1);
     Vector2 offset = new Vector2((-0.5f + xIndex*UVStep), (-0.5f + yIndex*UVStep));
-    vertices = new Vector3[resolution * resolution];
-    triangles = new int[(resolution - 1) * (resolution - 1) * 6];
+    vertices = new Vector3[currentResolution * currentResolution];
+    triangles = new int[(currentResolution - 1) * (currentResolution - 1) * 6];
     int triIndex = 0;
 
-    for(int y = 0 ; y < resolution; y++) {
-      for(int x = 0 ; x < resolution; x++) {
-        int i = x + y * resolution;
+    for(int y = 0 ; y < currentResolution; y++) {
+      for(int x = 0 ; x < currentResolution; x++) {
+        int i = x + y * currentResolution;
         Vector2 position = offset + new Vector2(x* step, y*step);
         Vector3 pointOnCube = localUp + position.x*2*axisA + position.y*2*axisB;
         Vector3 pointOnUnitSphere = pointOnCube.normalized;
         vertices[i] = pointOnUnitSphere; 
 
-        if (x != resolution - 1 && y != resolution - 1)
+        if (x != currentResolution - 1 && y != currentResolution - 1)
         {
           triangles[triIndex] = i;
-          triangles[triIndex + 1] = i + resolution + 1;
-          triangles[triIndex + 2] = i + resolution;
+          triangles[triIndex + 1] = i + currentResolution + 1;
+          triangles[triIndex + 2] = i + currentResolution;
 
           triangles[triIndex + 3] = i;
           triangles[triIndex + 4] = i + 1;
-          triangles[triIndex + 5] = i + resolution + 1;
+          triangles[triIndex + 5] = i + currentResolution + 1;
           triIndex += 6;
         }
       }
     }
+
     vertexCount = vertices.Length;
   }
 
@@ -68,17 +120,28 @@ public class FaceChunk {
     return vertices;
   }
 
-  public List<ObjectPlacementInfo> getPointsForObjectPlacement (int resolution, Transform worldTransform, float minDistance, float numIterations) {
+public List<ObjectPlacementInfo> getPointsForObjectPlacement (Transform worldTransform, float minDistance, float numIterations) {
+
+    Mesh maxAvailableDetailMesh = null;
+    int resolution = -1;
+    for(int i = detailLevels.Length-1; i>=0; i--) {
+      if (lodMeshes[detailLevels[i].lod].vertexCount > 0) {
+        maxAvailableDetailMesh = lodMeshes[detailLevels[i].lod];
+        resolution = detailLevels[i].lod;
+        break;
+      }
+    }
+
     List<Vector3> vertices = new List<Vector3>();
     List<Vector3> normals = new List<Vector3>();
     List<Vector2> heights = new List<Vector2>();
     List<Vector2> biomeData = new List<Vector2>();
     List<ObjectPlacementInfo> vegetationPlacementPoints = new List<ObjectPlacementInfo>();
 
-    mesh.GetVertices(vertices);
-    mesh.GetNormals(normals);
-    mesh.GetUVs(4,heights);
-    mesh.GetUVs(3, biomeData);
+    maxAvailableDetailMesh.GetVertices(vertices);
+    maxAvailableDetailMesh.GetNormals(normals);
+    maxAvailableDetailMesh.GetUVs(4,heights);
+    maxAvailableDetailMesh.GetUVs(3, biomeData);
 
     int centerVertexPosition;
     if (resolution%2 == 0) {
@@ -138,14 +201,18 @@ public class FaceChunk {
   }
 
   public void updateMesh (Vector3 [] vertices) {
-    mesh.Clear();
-    mesh.SetVertices (vertices);
-		mesh.SetTriangles (triangles, 0, true);
-		mesh.RecalculateNormals ();
+    lodMeshes[currentResolution].Clear();
+    lodMeshes[currentResolution].SetVertices (vertices);
+		lodMeshes[currentResolution].SetTriangles (triangles, 0, true);
+		lodMeshes[currentResolution].RecalculateNormals ();
   } 
 
+  public Mesh getCurrentLodMesh () {
+    return lodMeshes[currentResolution];
+  }
+
   public void updateUVs (int channel, Vector2 [] uvData) {
-    mesh.SetUVs(channel,uvData);
+    lodMeshes[currentResolution].SetUVs(channel,uvData);
   }
 
   public void updateUVs (int channel, float [] uvData) {
@@ -153,7 +220,7 @@ public class FaceChunk {
     for (int i = 0 ;i < uvData.Length; i++) {
       uvDataVector[i] = new Vector2(uvData[i], 0);
     }
-    mesh.SetUVs(channel,uvDataVector);
+    lodMeshes[currentResolution].SetUVs(channel,uvDataVector);
   }
 
 }

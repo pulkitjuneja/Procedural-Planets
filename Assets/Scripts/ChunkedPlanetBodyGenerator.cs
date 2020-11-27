@@ -2,11 +2,16 @@ using System.Collections.Generic;
 using UnityEngine;
 using ExtensionMethods;
 
+  [System.Serializable]
+	public struct LODInfo {
+		public int lod;
+		public float visibleDstThreshold;
+	}
 
 public class ChunkedPlanetBodyGenerator : MonoBehaviour {
 
   public ComputeShader heightMapCompute;
-  public int resolution;
+  public LODInfo [] detailLevels;
   public int chunkResolution;
   public int seed;
   public int radius;
@@ -31,7 +36,12 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
   List<Vector3> vegetationPlacementPoints;
   List<ComputeBuffer> buffersToRelease = new List<ComputeBuffer>();
 
+  Vector3 cachedPlayerPosition;
 
+
+  void Awake () {
+    cachedPlayerPosition = Camera.main.transform.position;
+  }
   void OnValidate () {
     if(biomeGenerator == null) {
       biomeGenerator = GetComponent<BiomeGenerator>();
@@ -43,6 +53,10 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     Run();
   }
 
+  void Update() {
+
+  }
+
   void Run () {
     UpdateChunks();
     var (minHeight, maxHeight) = generateTerrain();
@@ -52,7 +66,7 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     float endTime = Time.realtimeSinceStartup;
     setFaceChunkUVs(moistureTemperatureData);
     vegetationPlacementPoints = new List<Vector3>();
-    treeGenerator.GenerateTrees(FaceChunks,resolution,meshFilters, biomeGenerator.biomes);
+    treeGenerator.GenerateTrees(FaceChunks,meshFilters, biomeGenerator.biomes);
     Debug.Log((endTime-startTime)* 1000);
     scaleWithRadius();
     releaseBuffers();
@@ -73,7 +87,6 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
       for(int j = 0 ; j < chunkResolution; j++) {
         for(int k = 0; k < chunkResolution; k++) {
           int chunkLocationinArray = i*chunkResolution*chunkResolution + j*chunkResolution +k;
-          FaceChunks[chunkLocationinArray] = new FaceChunk(directions[i],j,k);
           if (meshFilters[chunkLocationinArray] == null) {
             GameObject meshObj = new GameObject("chunk-"+i+"-"+j+"-"+k);
             meshObj.transform.parent = transform;
@@ -81,6 +94,7 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
             meshObj.AddComponent<MeshRenderer>().sharedMaterial = biomeGenerator.terrainMaterial;
             meshFilters[chunkLocationinArray] = meshObj.AddComponent<MeshFilter>();
           }
+          FaceChunks[chunkLocationinArray] = new FaceChunk(chunkResolution, directions[i],j,k, detailLevels, meshFilters[i].gameObject);
         }
       }
     }
@@ -100,7 +114,7 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     for (int i = 0; i < FaceChunks.Length; i++) {
       if (meshFilters[i].gameObject.activeSelf)
       {
-        FaceChunks[i].generateMesh(resolution,chunkResolution);
+        FaceChunks[i].generateMesh(chunkResolution);
         cumulatedVertices.AddRange(FaceChunks[i].getVertices());
       }
     }
@@ -127,7 +141,7 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     for(int i = 0 ;i < FaceChunks.Length ; i ++) {
       FaceChunks[i].updateMesh(cumulatedVertices.GetRange(currentMeshStartIndex,FaceChunks[i].vertexCount).ToArray());
       FaceChunks[i].updateUVs(4, heights.SubArray(currentMeshStartIndex,FaceChunks[i].vertexCount));
-      meshFilters[i].sharedMesh = FaceChunks[i].mesh;
+      meshFilters[i].sharedMesh = FaceChunks[i].getCurrentLodMesh();
       currentMeshStartIndex += FaceChunks[i].vertexCount;
       meshFilters[i].gameObject.transform.localPosition = new Vector3(0,0,0);
     }
@@ -182,10 +196,10 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     }
   }
 
-  void OnDrawGizmos () {
-    foreach (Vector3 vertex in vegetationPlacementPoints) {
-      Gizmos.DrawSphere(vertex, 1);
-    }
-  }
+  // void OnDrawGizmos () {
+  //   foreach (FaceChunk face in FaceChunks) {
+  //     Gizmos.DrawCube(face.chunkBounds.center, face.chunkBounds.size);
+  //   }
+  // }
 
 }

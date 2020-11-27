@@ -10,17 +10,18 @@ public class TreeGenerator : MonoBehaviour {
   public int numIterations;
   public GameObject treeParent;
   List<GameObject> generatedTrees;
+
   List<ObjectPlacementInfo> vegetationPlacementPoints;
 
-  public void GenerateTrees (FaceChunk[] faceChunks, int resolution, MeshFilter[] meshFilters, Biome [] biomes) {
-    CalculateTreePlacementPositions(faceChunks, resolution, meshFilters);
+  public void GenerateTrees (FaceChunk[] faceChunks, MeshFilter[] meshFilters, Biome [] biomes) {
+    CalculateTreePlacementPositions(faceChunks, meshFilters);
     placeTrees(biomes);
   }
 
-  void CalculateTreePlacementPositions  (FaceChunk[] faceChunks, int resolution, MeshFilter[] meshFilters) {
+  void CalculateTreePlacementPositions  (FaceChunk[] faceChunks, MeshFilter[] meshFilters) {
     vegetationPlacementPoints = new List<ObjectPlacementInfo>();
     for (int i = 0; i < faceChunks.Length; i++) {
-      List<ObjectPlacementInfo> pointsToAdd = faceChunks[i].getPointsForObjectPlacement(resolution, meshFilters[i].gameObject.transform, minDistanceBetweenTrees, numIterations);
+      List<ObjectPlacementInfo> pointsToAdd = faceChunks[i].getPointsForObjectPlacement(meshFilters[i].gameObject.transform, minDistanceBetweenTrees, numIterations);
       vegetationPlacementPoints.AddRange(pointsToAdd);
     }
   }
@@ -62,6 +63,7 @@ public class TreeGenerator : MonoBehaviour {
   }
 
   void OnDrawGizmos () {
+    Debug.Log(vegetationPlacementPoints.Count);
     if (vegetationPlacementPoints != null) {
       foreach (ObjectPlacementInfo point in vegetationPlacementPoints) {
         Gizmos.DrawSphere(point.worldPosition, 0.01f);
