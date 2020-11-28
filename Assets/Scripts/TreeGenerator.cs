@@ -34,18 +34,20 @@ public class TreeGenerator : MonoBehaviour {
     }
 
     // remove existing trees
-    if(!Application.isPlaying) {
-      Debug.Log(generatedTrees.Count);
-      foreach (GameObject tree in generatedTrees) {
-         UnityEditor.EditorApplication.delayCall+=()=>{DestroyImmediate(tree);};
+    if(generatedTrees != null) {
+      if(!Application.isPlaying) {
+        foreach (GameObject tree in generatedTrees) {
+          UnityEditor.EditorApplication.delayCall+=()=>{DestroyImmediate(tree);};
+        }
+      } else {
+        foreach (GameObject tree in generatedTrees) { 
+          Destroy(tree);
+        }
       }
     } else {
-      foreach (GameObject tree in generatedTrees) { 
-        Destroy(tree);
-      }
+      generatedTrees = new List<GameObject>();
     }
     
-    Debug.Log(vegetationPlacementPoints.Count);
     // generate new trees
     foreach(ObjectPlacementInfo point in vegetationPlacementPoints) {
       GameObject treePrefab = biomes[0].TreePrefabs[0];
@@ -63,7 +65,6 @@ public class TreeGenerator : MonoBehaviour {
   }
 
   void OnDrawGizmos () {
-    Debug.Log(vegetationPlacementPoints.Count);
     if (vegetationPlacementPoints != null) {
       foreach (ObjectPlacementInfo point in vegetationPlacementPoints) {
         Gizmos.DrawSphere(point.worldPosition, 0.01f);

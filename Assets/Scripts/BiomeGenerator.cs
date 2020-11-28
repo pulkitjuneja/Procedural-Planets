@@ -46,11 +46,11 @@ public class BiomeGenerator : MonoBehaviour {
           break;
         }
       }
-    }    
+    }  
 
     if(!areBiomesValid) {
-      Debug.Log("Duplicate biome indexes");
-    }
+      Debug.Log("Biomes not valid");
+    } 
 
     if(onSettingsUpdated != null) {
        onSettingsUpdated.Invoke();
@@ -108,18 +108,8 @@ public class BiomeGenerator : MonoBehaviour {
 
     return moistureTemperatureData;
   }
-
-  public void updateShadingData (ref Vector2 [] moistureTemperatureData, float minHeight, float maxHeight) {
-    terrainMaterial.SetVector("elevationMinMax", new Vector4(minHeight, maxHeight));
-    Texture2D outputTex = generateBiomeTexture();
-    byte[] _bytes =outputTex.EncodeToPNG();
-    System.IO.File.WriteAllBytes("./Assets/biomesTex.png", _bytes);
-    terrainMaterial.SetTexture("biomeTexture", outputTex);
-    terrainMaterial.SetFloat("numMoistureRegions", numMoistureRegions);
-    terrainMaterial.SetFloat("numTemperatureRegions", numTemperatureRegions);
-  }
   
-  Texture2D generateBiomeTexture () {
+  public void updateTerrainMaterial () {
     int textureResolution = 256;
     Texture2D outputTex = new Texture2D(textureResolution, numMoistureRegions * numTemperatureRegions, TextureFormat.ARGB32, false, false);
     outputTex.filterMode = FilterMode.Point;
@@ -128,7 +118,10 @@ public class BiomeGenerator : MonoBehaviour {
         outputTex.SetPixel(j,i, biomes[i].biomeColors.Evaluate((float)j/(float)256));
       }
     }
-    return outputTex;
+    terrainMaterial.SetTexture("biomeTexture", outputTex);
+    outputTex.anisoLevel++;
+    terrainMaterial.SetFloat("numMoistureRegions", numMoistureRegions);
+    terrainMaterial.SetFloat("numTemperatureRegions", numTemperatureRegions);
   }
 
   void releaseBuffers () {

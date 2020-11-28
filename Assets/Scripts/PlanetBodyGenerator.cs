@@ -47,7 +47,6 @@ public class PlanetBodyGenerator : MonoBehaviour {
     var (minHeight, maxHeight) = generateTerrain();
     float startTime = Time.realtimeSinceStartup;
     Vector2 [] moistureTemperatureData = biomeGenerator.generateMoistureAndTemperatureData(vertexBuffer, heightMapBuffer, minHeight, maxHeight);
-    biomeGenerator.updateShadingData(ref moistureTemperatureData, minHeight, maxHeight);
     float endTime = Time.realtimeSinceStartup;
     Debug.Log((endTime-startTime)* 1000);
     planetMesh.SetUVs(3,moistureTemperatureData);
@@ -102,6 +101,7 @@ public class PlanetBodyGenerator : MonoBehaviour {
 
     ComputeBuffer ridgeNoiseSettingsBuffer = new ComputeBuffer(ridgeNoiseData.Length, sizeof(int) + 8*sizeof(float));
     ridgeNoiseSettingsBuffer.SetData(ridgeNoiseData);
+    buffersToRelease.Add(ridgeNoiseSettingsBuffer);
 
     RNGHelper random = new RNGHelper(seed);
     Vector3 seedOffset = new Vector3(random.nextDouble(), random.nextDouble(), random.nextDouble());

@@ -10,7 +10,7 @@ public class FaceChunk {
   GameObject worldParent;
   public int vertexCount;
   public Bounds chunkBounds;
-  int currentResolution;
+  public int currentResolution;
   LODInfo [] detailLevels;
   Vector3 localUp;
   Vector3 axisA;
@@ -19,6 +19,7 @@ public class FaceChunk {
   float yIndex;
   int [] triangles;
   Vector3 [] vertices;
+
 
 
 
@@ -55,7 +56,6 @@ public class FaceChunk {
         break;
       }
     }
-
     return detailLevels[lodIndex].lod;
   }
 
@@ -82,37 +82,49 @@ public class FaceChunk {
     Object.DestroyImmediate(tempMesh);
   }
 
-  public void generateMesh (int chunkResolution, int resolution = -1) {
-    currentResolution = resolution == -1 ? getResolutionBasedOnCameraDistance(chunkResolution) : resolution;
+  public bool isLodGenerationRequired(int chunkResolution, MeshFilter chunkMeshFilter) {
+    int newResolution = getResolutionBasedOnCameraDistance(chunkResolution);
+    if(newResolution == currentResolution) {
+      // no update required
+      return false;
+    } else if (lodMeshes[newResolution].vertexCount > 0) {
+      chunkMeshFilter.sharedMesh = lodMeshes[newResolution];
+      return false;
+    } else {
+      // mesh update required
+      return true;
+    }
+  }
+
+  public void generateMesh (int chunkResolution, int resolution) {
     float UVStep = 1f/chunkResolution;
-    float step = UVStep/(currentResolution-1);
+    float step = UVStep/(resolution-1);
     Vector2 offset = new Vector2((-0.5f + xIndex*UVStep), (-0.5f + yIndex*UVStep));
-    vertices = new Vector3[currentResolution * currentResolution];
-    triangles = new int[(currentResolution - 1) * (currentResolution - 1) * 6];
+    vertices = new Vector3[resolution * resolution];
+    triangles = new int[(resolution - 1) * (resolution - 1) * 6];
     int triIndex = 0;
 
-    for(int y = 0 ; y < currentResolution; y++) {
-      for(int x = 0 ; x < currentResolution; x++) {
-        int i = x + y * currentResolution;
+    for(int y = 0 ; y < resolution; y++) {
+      for(int x = 0 ; x < resolution; x++) {
+        int i = x + y * resolution;
         Vector2 position = offset + new Vector2(x* step, y*step);
         Vector3 pointOnCube = localUp + position.x*2*axisA + position.y*2*axisB;
         Vector3 pointOnUnitSphere = pointOnCube.normalized;
         vertices[i] = pointOnUnitSphere; 
 
-        if (x != currentResolution - 1 && y != currentResolution - 1)
+        if (x != resolution - 1 && y != resolution - 1)
         {
           triangles[triIndex] = i;
-          triangles[triIndex + 1] = i + currentResolution + 1;
-          triangles[triIndex + 2] = i + currentResolution;
+          triangles[triIndex + 1] = i + resolution + 1;
+          triangles[triIndex + 2] = i + resolution;
 
           triangles[triIndex + 3] = i;
           triangles[triIndex + 4] = i + 1;
-          triangles[triIndex + 5] = i + currentResolution + 1;
+          triangles[triIndex + 5] = i + resolution + 1;
           triIndex += 6;
         }
       }
     }
-
     vertexCount = vertices.Length;
   }
 
