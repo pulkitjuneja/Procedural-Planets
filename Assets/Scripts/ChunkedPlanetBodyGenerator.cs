@@ -45,6 +45,14 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
   void Awake () {
     cachedPlayerPosition = Camera.main.transform.position;
   }
+
+  void Start () {
+
+    // Terrain generation needs to run again when entering play mode as script references get broken otherwise
+    treeGenerator.DestroyAllTrees();
+    StartCoroutine(GeneratePlanet());
+  }
+
   void OnValidate () {
     if(biomeGenerator == null) {
       biomeGenerator = GetComponent<BiomeGenerator>();
@@ -52,11 +60,10 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     if(treeGenerator == null) {
       treeGenerator = GetComponent<TreeGenerator>();
     }
-    biomeGenerator.onSettingsUpdated = GeneratePlanet;
     if(!EditorApplication.isPlayingOrWillChangePlaymode) {
-      GeneratePlanet();
+      StartCoroutine(GeneratePlanet());
       Debug.Log("Generated");
-    }
+     }
   }
 
   void Update() {
@@ -125,19 +132,21 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     releaseBuffers();
   }
 
-  void GeneratePlanet () {
+  IEnumerator GeneratePlanet () {
+    Debug.Log("Generating terrain");
     UpdateChunks();
     var (minHeight, maxHeight) = generateTerrain();
     currentMaxHeight = maxHeight;
     currentMinHeight = minHeight;
-    float startTime = Time.realtimeSinceStartup;
+    yield return null;
+    Debug.Log("Generating Biomes");
     biomeGenerator.updateTerrainMaterial();
     Vector2 [] moistureTemperatureData = biomeGenerator.generateMoistureAndTemperatureData(vertexBuffer, heightMapBuffer, minHeight, maxHeight);
     setFaceChunkUVs(moistureTemperatureData);
-    float endTime = Time.realtimeSinceStartup;
+    yield return null;
+    Debug.Log("Generating trees");
     vegetationPlacementPoints = new List<Vector3>();
     treeGenerator.GenerateTrees(FaceChunks,meshFilters, biomeGenerator.biomes);
-    Debug.Log((endTime-startTime)* 1000);
     scaleWithRadius();
     releaseBuffers();
   }
@@ -271,11 +280,5 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
       buffer.Release();
     }
   }
-
-  // void OnDrawGizmos () {
-  //   foreach (FaceChunk face in FaceChunks) {
-  //     Gizmos.DrawCube(face.chunkBounds.center, face.chunkBounds.size);
-  //   }
-  // }
 
 }

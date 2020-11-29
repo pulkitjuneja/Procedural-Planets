@@ -87,7 +87,7 @@ void CSMain (uint id : SV_DispatchThreadID) {
     }
   }
 
-  int moistureBlendIndex = getBlendIndex(moistureValue, moistureIndex);
+  // int moistureBlendIndex = getBlendIndex(moistureValue, moistureIndex);
 
   for (i = 1 ; i <= numTemperatureRegions; i++) {
     if(temperatureValue <= (i*temperatureInterval)) {
@@ -96,27 +96,25 @@ void CSMain (uint id : SV_DispatchThreadID) {
     }
   }
 
-  int temperatureBlendIndex = getBlendIndex(temperatureValue, temperatureIndex);
+  // int temperatureBlendIndex = getBlendIndex(temperatureValue, temperatureIndex);
 
   int biomeIndexInt = temperatureMoistureBiomeMap[moistureIndex* numTemperatureRegions + temperatureIndex];
-  int biomeBlendIndexInt = temperatureMoistureBiomeMap[moistureBlendIndex* numTemperatureRegions + temperatureBlendIndex];
+  // int biomeBlendIndexInt = temperatureMoistureBiomeMap[moistureBlendIndex* numTemperatureRegions + temperatureBlendIndex];
   int waterBiomeIndexInt = numMoistureRegions* numTemperatureRegions;
 
   float biomeIndex = (float)biomeIndexInt / (float)(numMoistureRegions *numTemperatureRegions) + 0.02;
-  float biomeBlendIndex = (float)biomeBlendIndexInt / (float)(numMoistureRegions *numTemperatureRegions) + 0.02;
+  // float biomeBlendIndex = (float)biomeBlendIndexInt / (float)(numMoistureRegions *numTemperatureRegions) + 0.02;
   float waterBiomeIndex = (float)waterBiomeIndexInt / (float)(numMoistureRegions *numTemperatureRegions) + 0.02;
 
   float finalIndex;
-  float finalBlendIndex;
+  // float finalBlendIndex;
   float isUnderWater = step(heights[id], 0.97f);
 
   if(heights[id] < 0.97) {
     finalIndex = waterBiomeIndex;
-    finalBlendIndex = waterBiomeIndex;
   } else {
     finalIndex = biomeIndex;
-    finalBlendIndex = biomeBlendIndex;
   }
 
-  moisture[id] = float2(finalIndex, finalBlendIndex);
+  moisture[id] = float2(finalIndex, 1.0f);
 }

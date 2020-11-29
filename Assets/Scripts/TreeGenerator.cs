@@ -1,9 +1,7 @@
 using System.Collections.Generic;
 using System.Collections;
 using UnityEngine;
-using ExtensionMethods;
-using Unity.Collections;
-using Unity.Jobs;
+using UnityEditor;
 
 public class TreeGenerator : MonoBehaviour {
   public float minDistanceBetweenTrees;
@@ -62,6 +60,13 @@ public class TreeGenerator : MonoBehaviour {
   IEnumerator DestroyTree (GameObject tree) {
     yield return new WaitForEndOfFrame();
     DestroyImmediate(tree); 
+  }
+
+  public void DestroyAllTrees () {
+    Transform treeParent = transform.Find("Trees");
+    foreach(Transform child in treeParent) {
+      Destroy(child.gameObject);
+    }
   }
 
   void OnDrawGizmos () {

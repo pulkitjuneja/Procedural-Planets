@@ -31,8 +31,10 @@ public class BiomeGenerator : MonoBehaviour {
   public Action onSettingsUpdated;
   public Material terrainMaterial;
 
-  List<ComputeBuffer> buffersToRelease = new List<ComputeBuffer>();
+  Texture2D biomeTexture;
 
+  List<ComputeBuffer> buffersToRelease = new List<ComputeBuffer>();
+  
   void OnValidate() {
     // check that there are no duplicate biomes
     Array.Resize(ref biomes, numMoistureRegions * numMoistureRegions);
@@ -112,19 +114,19 @@ public class BiomeGenerator : MonoBehaviour {
   
   public void updateTerrainMaterial () {
     int textureResolution = 256;
-    Texture2D outputTex = new Texture2D(textureResolution, numMoistureRegions * numTemperatureRegions + 1, TextureFormat.ARGB32, false, false);
-    outputTex.filterMode = FilterMode.Point;
+    biomeTexture = new Texture2D(textureResolution, numMoistureRegions * numTemperatureRegions + 1, TextureFormat.ARGB32, false, false);
+    biomeTexture.filterMode = FilterMode.Point;
     for(int i = 0; i < biomes.Length; i ++) {
       for(int j = 0 ; j <textureResolution ; j++ ) {
-        outputTex.SetPixel(j,i, biomes[i].biomeColors.Evaluate((float)j/(float)256));
+        biomeTexture.SetPixel(j,i, biomes[i].biomeColors.Evaluate((float)j/(float)256));
       }
     }
     // add water biome to texture
     for(int j = 0 ; j <textureResolution ; j++ ) {
-        outputTex.SetPixel(j,biomes.Length, waterBiome.biomeColors.Evaluate((float)j/(float)256));
+        biomeTexture.SetPixel(j,biomes.Length, waterBiome.biomeColors.Evaluate((float)j/(float)256));
     } 
-    terrainMaterial.SetTexture("biomeTexture", outputTex);
-    outputTex.anisoLevel++;
+    terrainMaterial.SetTexture("biomeTexture", biomeTexture);
+    biomeTexture.anisoLevel++;
     terrainMaterial.SetFloat("numMoistureRegions", numMoistureRegions);
     terrainMaterial.SetFloat("numTemperatureRegions", numTemperatureRegions);
   }
