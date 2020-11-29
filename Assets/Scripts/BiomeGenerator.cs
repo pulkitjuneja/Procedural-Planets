@@ -53,7 +53,7 @@ public class BiomeGenerator : MonoBehaviour {
       Debug.Log("Biomes not valid");
     } 
 
-    if(onSettingsUpdated != null) {
+    if(onSettingsUpdated != null && !EditorApplication.isPlayingOrWillChangePlaymode) {
        onSettingsUpdated.Invoke();
     }
   }

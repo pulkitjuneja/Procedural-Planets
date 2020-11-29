@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Collections;
 using ExtensionMethods;
+using UnityEditor;
 
   [System.Serializable]
 	public struct LODInfo {
@@ -52,8 +53,9 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
       treeGenerator = GetComponent<TreeGenerator>();
     }
     biomeGenerator.onSettingsUpdated = GeneratePlanet;
-    if(!Application.isPlaying) {
+    if(!EditorApplication.isPlayingOrWillChangePlaymode) {
       GeneratePlanet();
+      Debug.Log("Generated");
     }
   }
 
