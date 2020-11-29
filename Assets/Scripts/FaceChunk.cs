@@ -31,7 +31,9 @@ public class FaceChunk {
 
     lodMeshes = new Dictionary<int, Mesh>(detailLevels.Length);
     for (int i = 0; i < detailLevels.Length; i++) {
-      lodMeshes.Add(detailLevels[i].lod, new Mesh());
+      Mesh mesh = new Mesh();
+      mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+      lodMeshes.Add(detailLevels[i].lod, mesh);
     }
 
     this.detailLevels = detailLevels;
@@ -90,8 +92,10 @@ public class FaceChunk {
     } else if (lodMeshes[newResolution].vertexCount > 0) {
       chunkMeshFilter.sharedMesh = lodMeshes[newResolution];
       return false;
+    } else if(Mathf.Sqrt(chunkBounds.SqrDistance(Camera.main.transform.position)) > 120){
+      // mesh far away , update not required
+      return false;
     } else {
-      // mesh update required
       return true;
     }
   }

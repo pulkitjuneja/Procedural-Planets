@@ -132,7 +132,6 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     biomeGenerator.updateTerrainMaterial();
     Vector2 [] moistureTemperatureData = biomeGenerator.generateMoistureAndTemperatureData(vertexBuffer, heightMapBuffer, minHeight, maxHeight);
     setFaceChunkUVs(moistureTemperatureData);
-    // biomeGenerator.updateShadingData(ref moistureTemperatureData, minHeight, maxHeight);
     float endTime = Time.realtimeSinceStartup;
     vegetationPlacementPoints = new List<Vector3>();
     treeGenerator.GenerateTrees(FaceChunks,meshFilters, biomeGenerator.biomes);

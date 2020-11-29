@@ -27,6 +27,7 @@ public class BiomeGenerator : MonoBehaviour {
   [Range(0,5)]
   public int numTemperatureRegions;
   public Biome [] biomes;
+  public Biome waterBiome;
   public Action onSettingsUpdated;
   public Material terrainMaterial;
 
@@ -111,13 +112,17 @@ public class BiomeGenerator : MonoBehaviour {
   
   public void updateTerrainMaterial () {
     int textureResolution = 256;
-    Texture2D outputTex = new Texture2D(textureResolution, numMoistureRegions * numTemperatureRegions, TextureFormat.ARGB32, false, false);
+    Texture2D outputTex = new Texture2D(textureResolution, numMoistureRegions * numTemperatureRegions + 1, TextureFormat.ARGB32, false, false);
     outputTex.filterMode = FilterMode.Point;
     for(int i = 0; i < biomes.Length; i ++) {
       for(int j = 0 ; j <textureResolution ; j++ ) {
         outputTex.SetPixel(j,i, biomes[i].biomeColors.Evaluate((float)j/(float)256));
       }
     }
+    // add water biome to texture
+    for(int j = 0 ; j <textureResolution ; j++ ) {
+        outputTex.SetPixel(j,biomes.Length, waterBiome.biomeColors.Evaluate((float)j/(float)256));
+    } 
     terrainMaterial.SetTexture("biomeTexture", outputTex);
     outputTex.anisoLevel++;
     terrainMaterial.SetFloat("numMoistureRegions", numMoistureRegions);

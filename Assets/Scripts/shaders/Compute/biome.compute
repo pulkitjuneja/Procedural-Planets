@@ -100,9 +100,20 @@ void CSMain (uint id : SV_DispatchThreadID) {
 
   int biomeIndexInt = temperatureMoistureBiomeMap[moistureIndex* numTemperatureRegions + temperatureIndex];
   int biomeBlendIndexInt = temperatureMoistureBiomeMap[moistureBlendIndex* numTemperatureRegions + temperatureBlendIndex];
+  int waterBiomeIndexInt = numMoistureRegions* numTemperatureRegions;
 
   float biomeIndex = (float)biomeIndexInt / (float)(numMoistureRegions *numTemperatureRegions) + 0.02;
   float biomeBlendIndex = (float)biomeBlendIndexInt / (float)(numMoistureRegions *numTemperatureRegions) + 0.02;
+  float waterBiomeIndex = (float)waterBiomeIndexInt / (float)(numMoistureRegions *numTemperatureRegions) + 0.02;
 
-  moisture[id] = float2(biomeIndex, moistureIndex);
+  float finalIndex;
+  float isUnderWater = step(heights[id], 0.97f);
+
+  if(heights[id] < 0.97) {
+    finalIndex = waterBiomeIndex;
+  } else {
+    finalIndex = biomeIndex;
+  }
+
+  moisture[id] = float2(finalIndex, isUnderWater);
 }
