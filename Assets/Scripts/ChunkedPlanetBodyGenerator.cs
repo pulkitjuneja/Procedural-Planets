@@ -41,6 +41,10 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
   Vector3 cachedPlayerPosition;
   float currentMaxHeight, currentMinHeight;
 
+  List<Vector3> MeshCalculationVertexAllocation;
+  List<int> MeshCalculationTrisAllocation;
+
+
 
   void Awake () {
     cachedPlayerPosition = Camera.main.transform.position;
@@ -81,6 +85,7 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
         faceChunkIdsToUpdate.Add(i);
       }
     }
+    Debug.Log(faceChunkIdsToUpdate.Count);
     if(faceChunkIdsToUpdate.Count > 0) {
       StartCoroutine(updateFaceChunkLods(faceChunkIdsToUpdate));
     }
@@ -88,13 +93,17 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
 
   IEnumerator updateFaceChunkLods (List<int> chunkIds) {
     List<Vector3> cumulatedVertices = new List<Vector3>();
+    List<int> cumulatedTriangles = new List<int>();
+    MeshCalculationVertexAllocation.Clear();
+    MeshCalculationTrisAllocation.Clear();
     for (int i = 0; i < chunkIds.Count; i++) {
       if (meshFilters[i].gameObject.activeSelf)
       {
         int resolution = FaceChunks[chunkIds[i]].getResolutionBasedOnCameraDistance(chunkResolution);
-        FaceChunks[chunkIds[i]].generateMesh(chunkResolution, resolution);
+        FaceChunks[chunkIds[i]].generateMesh(chunkResolution, resolution, MeshCalculationVertexAllocation, MeshCalculationTrisAllocation);
         FaceChunks[chunkIds[i]].currentResolution = resolution;
-        cumulatedVertices.AddRange(FaceChunks[chunkIds[i]].getVertices());
+        cumulatedVertices.AddRange(MeshCalculationVertexAllocation);
+        cumulatedTriangles.AddRange(MeshCalculationTrisAllocation);
       }
     }
     int threadGroupsX = prepareHeightComputeData(cumulatedVertices.ToArray());
@@ -117,15 +126,17 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     }
 
     Vector2 [] moistureTemperatureData = biomeGenerator.generateMoistureAndTemperatureData(vertexBuffer, heightMapBuffer, currentMinHeight, currentMaxHeight);
-
-    int currentMeshStartIndex = 0;
+    int currentMeshVertexStartIndex = 0;
+    int currentMeshTrisStartIndex = 0;
     for (int i = 0; i < chunkIds.Count; i++) {
       int index = chunkIds[i];
-      FaceChunks[index].updateMesh(cumulatedVertices.GetRange(currentMeshStartIndex,FaceChunks[index].vertexCount).ToArray());
-      FaceChunks[index].updateUVs(4, heights.SubArray(currentMeshStartIndex,FaceChunks[index].vertexCount));
-      FaceChunks[index].updateUVs(3, moistureTemperatureData.SubArray(currentMeshStartIndex, FaceChunks[index].vertexCount));
+      FaceChunks[index].updateMesh(cumulatedVertices.GetRange(currentMeshVertexStartIndex,FaceChunks[index].vertexCount),
+      cumulatedTriangles.GetRange(currentMeshTrisStartIndex, FaceChunks[index].triangleCount));
+      FaceChunks[index].updateUVs(4, heights.SubArray(currentMeshVertexStartIndex,FaceChunks[index].vertexCount));
+      FaceChunks[index].updateUVs(3, moistureTemperatureData.SubArray(currentMeshVertexStartIndex, FaceChunks[index].vertexCount));
       meshFilters[index].sharedMesh = FaceChunks[index].getCurrentLodMesh();
-      currentMeshStartIndex += FaceChunks[index].vertexCount;
+      currentMeshVertexStartIndex += FaceChunks[index].vertexCount;
+      currentMeshTrisStartIndex += FaceChunks[index].triangleCount;
       meshFilters[index].gameObject.transform.localPosition = new Vector3(0,0,0);
     }
 
@@ -181,6 +192,10 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
         }
       }
     }
+    int maxResolution = detailLevels[0].lod;
+    MeshCalculationVertexAllocation = new List<Vector3>(maxResolution*maxResolution);
+    MeshCalculationTrisAllocation = new List<int>((maxResolution-1)*(maxResolution-1)*6);
+    Debug.Log("Buffers reallocated");
   }
 
   void setFaceChunkUVs (Vector2 [] moistureTemperatureData) {
@@ -194,13 +209,15 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
 
   (float, float) generateTerrain (){
     List<Vector3> cumulatedVertices = new List<Vector3>();
+    List<int> cumulatedTriangles = new List<int>();
     for (int i = 0; i < FaceChunks.Length; i++) {
       if (meshFilters[i].gameObject.activeSelf)
       {
         int resolution = FaceChunks[i].getResolutionBasedOnCameraDistance(chunkResolution);
-        FaceChunks[i].generateMesh(chunkResolution, resolution);
+        FaceChunks[i].generateMesh(chunkResolution, resolution, MeshCalculationVertexAllocation, MeshCalculationTrisAllocation);
         FaceChunks[i].currentResolution = resolution;
-        cumulatedVertices.AddRange(FaceChunks[i].getVertices());
+        cumulatedVertices.AddRange(MeshCalculationVertexAllocation);
+        cumulatedTriangles.AddRange(MeshCalculationTrisAllocation);
       }
     }
     int threadGroupsX = prepareHeightComputeData(cumulatedVertices.ToArray());
@@ -222,12 +239,15 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
      cumulatedVertices[i] = cumulatedVertices[i]* heights[i];
     }
 
-    int currentMeshStartIndex = 0;
+    int currentMeshVertexStartIndex = 0;
+    int currentMeshTrisStartIndex = 0;
     for(int i = 0 ;i < FaceChunks.Length ; i ++) {
-      FaceChunks[i].updateMesh(cumulatedVertices.GetRange(currentMeshStartIndex,FaceChunks[i].vertexCount).ToArray());
-      FaceChunks[i].updateUVs(4, heights.SubArray(currentMeshStartIndex,FaceChunks[i].vertexCount));
+      FaceChunks[i].updateMesh(cumulatedVertices.GetRange(currentMeshVertexStartIndex,FaceChunks[i].vertexCount),
+      cumulatedTriangles.GetRange(currentMeshTrisStartIndex,FaceChunks[i].triangleCount));
+      FaceChunks[i].updateUVs(4, heights.SubArray(currentMeshVertexStartIndex,FaceChunks[i].vertexCount));
       meshFilters[i].sharedMesh = FaceChunks[i].getCurrentLodMesh();
-      currentMeshStartIndex += FaceChunks[i].vertexCount;
+      currentMeshVertexStartIndex += FaceChunks[i].vertexCount;
+      currentMeshTrisStartIndex += FaceChunks[i].triangleCount;
       meshFilters[i].gameObject.transform.localPosition = new Vector3(0,0,0);
     }
     return (minHeight, maxHeight);

@@ -9,6 +9,7 @@ public class FaceChunk {
   Dictionary<int, Mesh> lodMeshes;
   GameObject worldParent;
   public int vertexCount;
+  public int triangleCount;
   public Bounds chunkBounds;
   public int currentResolution;
   LODInfo [] detailLevels;
@@ -19,6 +20,9 @@ public class FaceChunk {
   float yIndex;
   int [] triangles;
   Vector3 [] vertices;
+
+  List<Vector3> boundsMeshVertexAllocation;
+  List<int> boundsMeshTriangleAllocation;
 
 
 
@@ -41,6 +45,9 @@ public class FaceChunk {
     this.xIndex = xIndex;
     this.yIndex = yIndex;
 
+    boundsMeshVertexAllocation = new List<Vector3>(64);
+    boundsMeshTriangleAllocation = new List<int>(294);
+
     this.worldParent = worldParent; 
     updateMeshWorldBounds(chunkResolution);
   }
@@ -62,11 +69,11 @@ public class FaceChunk {
   }
 
   void updateMeshWorldBounds (int chunkResolution) {
-    generateMesh(chunkResolution, 8);
+    generateMesh(chunkResolution, 8, boundsMeshVertexAllocation, boundsMeshTriangleAllocation);
 
     // TODO find a better way to do this
     Mesh tempMesh = new Mesh();
-    tempMesh.SetVertices(vertices);
+    tempMesh.SetVertices(boundsMeshVertexAllocation);
     Bounds objectSpaceBounds = tempMesh.bounds;
     var center = worldParent.transform.TransformPoint(objectSpaceBounds.center);
 
@@ -100,12 +107,14 @@ public class FaceChunk {
     }
   }
 
-  public void generateMesh (int chunkResolution, int resolution) {
+  public void generateMesh (int chunkResolution, int resolution, List<Vector3> vertices, List<int> triangles) {
     float UVStep = 1f/chunkResolution;
     float step = UVStep/(resolution-1);
     Vector2 offset = new Vector2((-0.5f + xIndex*UVStep), (-0.5f + yIndex*UVStep));
-    vertices = new Vector3[resolution * resolution];
-    triangles = new int[(resolution - 1) * (resolution - 1) * 6];
+    vertexCount = resolution * resolution;
+    triangleCount = (resolution - 1) * (resolution - 1) * 6;
+    vertices.Clear();
+    triangles.Clear();
     int triIndex = 0;
 
     for(int y = 0 ; y < resolution; y++) {
@@ -114,22 +123,21 @@ public class FaceChunk {
         Vector2 position = offset + new Vector2(x* step, y*step);
         Vector3 pointOnCube = localUp + position.x*2*axisA + position.y*2*axisB;
         Vector3 pointOnUnitSphere = pointOnCube.normalized;
-        vertices[i] = pointOnUnitSphere; 
+        vertices.Insert(i, pointOnUnitSphere); 
 
         if (x != resolution - 1 && y != resolution - 1)
         {
-          triangles[triIndex] = i;
-          triangles[triIndex + 1] = i + resolution + 1;
-          triangles[triIndex + 2] = i + resolution;
+          triangles.Insert(triIndex, i);
+          triangles.Insert(triIndex + 1, i + resolution + 1);
+          triangles.Insert(triIndex + 2, i + resolution);
 
-          triangles[triIndex + 3] = i;
-          triangles[triIndex + 4] = i + 1;
-          triangles[triIndex + 5] = i + resolution + 1;
+          triangles.Insert(triIndex + 3, i);
+          triangles.Insert(triIndex + 4, i + 1);
+          triangles.Insert(triIndex + 5, i + resolution + 1);
           triIndex += 6;
         }
       }
     }
-    vertexCount = vertices.Length;
   }
 
   public Vector3 [] getVertices () {
@@ -216,7 +224,7 @@ public List<ObjectPlacementInfo> getPointsForObjectPlacement (Transform worldTra
     return vegetationPlacementPoints;
   }
 
-  public void updateMesh (Vector3 [] vertices) {
+  public void updateMesh (List<Vector3> vertices, List<int> triangles) {
     lodMeshes[currentResolution].Clear();
     lodMeshes[currentResolution].SetVertices (vertices);
 		lodMeshes[currentResolution].SetTriangles (triangles, 0, true);
