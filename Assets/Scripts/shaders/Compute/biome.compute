@@ -116,5 +116,5 @@ void CSMain (uint id : SV_DispatchThreadID) {
     finalIndex = biomeIndex;
   }
 
-  moisture[id] = float2(finalIndex, 1.0f);
+  moisture[id] = float2(finalIndex, biomeIndexInt);
 }

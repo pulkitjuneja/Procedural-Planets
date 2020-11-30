@@ -157,7 +157,10 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     yield return null;
     Debug.Log("Generating trees");
     vegetationPlacementPoints = new List<Vector3>();
-    treeGenerator.GenerateTrees(FaceChunks,meshFilters, biomeGenerator.biomes);
+    // generate trees only in play mode
+    if(EditorApplication.isPlayingOrWillChangePlaymode) {
+      treeGenerator.GenerateTrees(FaceChunks,meshFilters, biomeGenerator.biomes);
+    }
     scaleWithRadius();
     releaseBuffers();
   }

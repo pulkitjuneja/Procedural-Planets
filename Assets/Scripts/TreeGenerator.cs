@@ -7,7 +7,7 @@ public class TreeGenerator : MonoBehaviour {
   public float minDistanceBetweenTrees;
   public int numIterations;
   public GameObject treeParent;
-  List<GameObject> generatedTrees;
+  // List<GameObject> generatedTrees;
 
   List<ObjectPlacementInfo> vegetationPlacementPoints;
 
@@ -25,35 +25,13 @@ public class TreeGenerator : MonoBehaviour {
   }
 
   void placeTrees (Biome [] biomes) {
-    if(treeParent == null) {
-      treeParent = new GameObject("Trees");
-      treeParent.transform.parent = transform;
-      treeParent.transform.localScale = new Vector3(1,1,1);
-    }
-
-    // remove existing trees
-    if(generatedTrees != null) {
-      if(!Application.isPlaying) {
-        foreach (GameObject tree in generatedTrees) {
-          UnityEditor.EditorApplication.delayCall+=()=>{DestroyImmediate(tree);};
-        }
-      } else {
-        foreach (GameObject tree in generatedTrees) { 
-          Destroy(tree);
-        }
-      }
-    } else {
-      generatedTrees = new List<GameObject>();
-    }
-    
     // generate new trees
     foreach(ObjectPlacementInfo point in vegetationPlacementPoints) {
-      GameObject treePrefab = biomes[0].TreePrefabs[0];
+      Biome currentBiome = biomes[point.biomeIndex];
+      GameObject treePrefab = currentBiome.TreePrefabs[Random.Range(0,currentBiome.TreePrefabs.Length)];
       Vector3 position = point.worldPosition;
-      GameObject tree = Instantiate(treePrefab,position, Quaternion.identity, treeParent.transform);
-      tree.transform.localScale = treePrefab.transform.localScale;
-      tree.transform.up = point.normal.normalized;
-      generatedTrees.Add(tree);
+      GameObject tree = Instantiate(treePrefab,position, Quaternion.identity, point.parentChunk);
+      tree.GetComponent<placeableObject>().placeObject(position, point.normal.normalized, treePrefab.transform.localScale);
     }
   }
 
@@ -64,8 +42,10 @@ public class TreeGenerator : MonoBehaviour {
 
   public void DestroyAllTrees () {
     Transform treeParent = transform.Find("Trees");
-    foreach(Transform child in treeParent) {
-      Destroy(child.gameObject);
+    if(treeParent!= null ) {
+      foreach(Transform child in treeParent) {
+        Destroy(child.gameObject);
+      }
     }
   }
 

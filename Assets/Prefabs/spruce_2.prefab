@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 7154982067591112023}
   - component: {fileID: 6117086613047732978}
   - component: {fileID: 8286824063499836984}
+  - component: {fileID: 158190111072325993}
   m_Layer: 0
   m_Name: spruce_2
   m_TagString: Untagged
@@ -25,9 +26,9 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7494072126207344621}
-  m_LocalRotation: {x: -0, y: 0.4406832, z: -0, w: 0.89766276}
+  m_LocalRotation: {x: 0, y: 0.44068357, z: 0, w: 0.8976625}
   m_LocalPosition: {x: 66.829, y: 7.2189465, z: 80.768}
-  m_LocalScale: {x: 50, y: 50, z: 50}
+  m_LocalScale: {x: 0.49999997, y: 0.5, z: 0.49999997}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 0
@@ -80,3 +81,17 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+--- !u!114 &158190111072325993
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7494072126207344621}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f12af4072a2203e448980548508d7ea9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  positionOffset: {x: 0, y: 0, z: 0}
+  orientationAxis: 2

@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 6773956334122376735}
   - component: {fileID: 7615084424841925050}
   - component: {fileID: 5641534487696303472}
+  - component: {fileID: 5776317927345596030}
   m_Layer: 0
   m_Name: oak
   m_TagString: Untagged
@@ -25,9 +26,9 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6145792578251867301}
-  m_LocalRotation: {x: -0.0020708526, y: 0.31945044, z: -0.0040748357, w: 0.947592}
+  m_LocalRotation: {x: -0.002072581, y: 0.31944937, z: -0.004071726, w: 0.9475923}
   m_LocalPosition: {x: 67.001, y: 3.513, z: 80.681}
-  m_LocalScale: {x: 20, y: 20, z: 20}
+  m_LocalScale: {x: 0.4, y: 0.4, z: 0.4}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 0
@@ -80,3 +81,17 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+--- !u!114 &5776317927345596030
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6145792578251867301}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f12af4072a2203e448980548508d7ea9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  positionOffset: {x: 0, y: 0, z: 0}
+  orientationAxis: 2

@@ -195,7 +195,7 @@ public List<ObjectPlacementInfo> getPointsForObjectPlacement (Transform worldTra
       Vector3 pointVertex = vertices[pointIndex];
       Vector3 pointNormal = normals[pointIndex];
       float height = heights[pointIndex].x;
-      float biomeIndex = biomeData[pointIndex].x;
+      float biomeIndex = biomeData[pointIndex].y;
 
       //check if random point is not in min range of any existing point
       bool isValid = true;
@@ -219,7 +219,7 @@ public List<ObjectPlacementInfo> getPointsForObjectPlacement (Transform worldTra
       if(steepness > 0.2) {
         continue;
       }
-      vegetationPlacementPoints.Add(new ObjectPlacementInfo(worldTransform.TransformPoint(pointVertex),worldTransform.TransformVector(pointNormal), (int)biomeIndex));
+      vegetationPlacementPoints.Add(new ObjectPlacementInfo(worldTransform.TransformPoint(pointVertex),worldTransform.TransformVector(pointNormal), (int)biomeIndex, worldParent.transform));
     }
     return vegetationPlacementPoints;
   }
