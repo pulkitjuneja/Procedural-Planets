@@ -25,6 +25,8 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
   public SimpleNoiseSettings ridgeMaskNoiseSettings;
   public RidgeNoiseSettings ridgeNoiseSettings;
 
+  public Material waterMaterial;
+
   [SerializeField, HideInInspector]
   MeshFilter[] meshFilters;
   Vector3[] directions = { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
@@ -155,13 +157,14 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
     Vector2 [] moistureTemperatureData = biomeGenerator.generateMoistureAndTemperatureData(vertexBuffer, heightMapBuffer, minHeight, maxHeight);
     setFaceChunkUVs(moistureTemperatureData);
     yield return null;
-    Debug.Log("Generating trees");
     vegetationPlacementPoints = new List<Vector3>();
-    // generate trees only in play mode
+    // generate trees only in play mode because of memory issues
     if(EditorApplication.isPlayingOrWillChangePlaymode) {
+      Debug.Log("Generating trees");
       treeGenerator.GenerateTrees(FaceChunks,meshFilters, biomeGenerator.biomes);
     }
     scaleWithRadius();
+    addWaterMesh();
     releaseBuffers();
   }
   
@@ -254,6 +257,16 @@ public class ChunkedPlanetBodyGenerator : MonoBehaviour {
       meshFilters[i].gameObject.transform.localPosition = new Vector3(0,0,0);
     }
     return (minHeight, maxHeight);
+  }
+
+  void addWaterMesh () {
+    if(transform.Find("Sphere") == null) {
+      GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+      sphere.transform.parent = transform;
+      sphere.transform.localPosition = new Vector3(0, 0, 0);
+      sphere.transform.localScale = new Vector3(2,2,2);
+      sphere.GetComponent<MeshRenderer>().sharedMaterial = waterMaterial;
+    }
   }
 
   void scaleWithRadius () {
